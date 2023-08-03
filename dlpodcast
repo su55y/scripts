@@ -1,0 +1,19 @@
+#!/bin/sh
+
+[ -n "$1" ] || {
+	cat <<EOF
+dlpodcast usage: dlpodcast [URL] [OUTPUT] [RATIO]
+positional args:
+  \$1 - URL    (required) 
+  \$2 - OUTPUT (default: '%(title)s')
+  \$3 - RATIO  (default: 1.35)
+EOF
+	exit 0
+}
+output="$2"
+[ -n "$output" ] || output="%(title)s"
+ratio="$3"
+[ -n "$ratio" ] || ratio="1.35"
+
+
+yt-dlp "$1" -f 'bestaudio/best' -o "$output.%(ext)s" --exec "ffmpeg -i '$output.%(ext)s' -filter:a atempo='$ratio' '${output}x${ratio}.%(ext)s'"
