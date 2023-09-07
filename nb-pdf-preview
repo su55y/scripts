@@ -1,0 +1,24 @@
+#!/bin/sh
+
+err_msg() {
+	notify-send -a "$0" "$1"
+	exit 1
+}
+
+[ -n "$1" ] || err_msg "no input url"
+
+base_file="$(printf 'article%s' "$(tr -dc a-z0-9 </dev/urandom | head -c 8)")"
+article="/tmp/${base_file}.html"
+clean_article="/tmp/clean_${base_file}.html"
+pdf_article="/tmp/${base_file}.pdf"
+
+cleanup() {
+	[ -f "$article" ] && rm "$article"
+	[ -f "$clean_article" ] && rm "$clean_article"
+}
+trap cleanup EXIT
+
+wget "$1" -q -O "$article" || err_msg "can't downlaod by url '$1'"
+rdrview -T title,body -H -u "$1" <"$article" >"$clean_article" 2>/dev/null || err_msg "readability conversion error"
+pandoc "$clean_article" -t ms -o "$pdf_article" 2>/dev/null || err_msg "pandoc error"
+setsid -f zathura "$pdf_article" >/dev/null 2>&1 || err_msg "can't open in zathura"
