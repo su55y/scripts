@@ -1,0 +1,14 @@
+#!/bin/sh
+
+CLEANER="${HOME}/.local/share/newsboat/cleaner" # cron
+notify() {
+	[ -n "$1" ] && notify-send -a "newsboat" "$1"
+}
+
+total=$("$CLEANER")
+case $total in
+0) ;;
+*)
+	notify "$total last entries was deleted"
+	;;
+esac
