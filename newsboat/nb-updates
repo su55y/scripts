@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-# cron script
+#!/usr/bin/env -S python -u
 
 from pathlib import Path
 import os
