@@ -1,0 +1,226 @@
+#!/usr/bin/env -S python -u
+
+import argparse
+from dataclasses import dataclass
+import json
+import math
+import re
+import subprocess as sp
+from pathlib import Path
+from sys import argv
+from typing import Dict, List, Optional
+
+FFMPEG = "ffmpeg"
+FFPROBE = "ffprobe"
+MONTAGE = "montage"
+
+EXTRACT_CMD = f"{FFMPEG} %s -i %s -vf thumbnail=%s,setpts=N/TB -r 1 -vframes %d %s"
+EXTRACT_ALL_CMD = f"{FFMPEG} %s -i %s -vframes %d %s"
+SILENCE_OPTS = "-hide_banner -loglevel warning -stats"
+PROBE_CMD = f"{FFPROBE} -v quiet -show_streams -select_streams v:0 -of json %s"
+MOTAGE_CMD = f"{MONTAGE} -geometry +0+0 -tile %s %s %s"
+
+DEFAULT_COUNT = 10
+DEFAULT_FMT = "frames/frame%02d.png"
+DEFAULT_PREVIEW = "preview.png"
+
+
+@dataclass(slots=True)
+class Probe:
+    width: int
+    height: int
+    duration: float
+    r_frame_rate: float
+
+    def calc_interval(self, framecount: int) -> float:
+        return round((self.r_frame_rate * self.duration) / framecount, 2)
+
+
+def parse_args():
+    def check_count(arg: str) -> Optional[int]:
+        try:
+            num = int(arg)
+            if num < 1:
+                raise argparse.ArgumentTypeError("count should be positive number")
+        except:
+            raise argparse.ArgumentTypeError("invalid count '%s'" % arg)
+        else:
+            return num
+
+    def check_file(arg: str) -> Optional[Path]:
+        filepath = Path(arg)
+        if not filepath.exists() or not filepath.is_file():
+            raise argparse.ArgumentTypeError("invalid input file path '%s'" % arg)
+        return filepath
+
+    def check_format(arg: str) -> Optional[Path]:
+        try:
+            path = Path(arg)
+            if not re.match(r"^.*%(?:0\d)?d\..+$", path.name):
+                raise argparse.ArgumentTypeError(f"invalid format '{path.name}'")
+            if not path.parent.exists():
+                if "-y" not in argv[1:]:
+                    resp = input(
+                        "path '%s' not exists, create?\n[y/n (default: n)]: "
+                        % path.parent.absolute()
+                    )
+                    if not re.match(r"^[yY](?:es)?$", resp):
+                        exit(0)
+                path.parent.mkdir(parents=True, exist_ok=True)
+        except KeyboardInterrupt:
+            exit(0)
+        except Exception as e:
+            raise argparse.ArgumentTypeError(f"parse format error: {e}")
+        else:
+            return path
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "file",
+        type=check_file,
+        metavar="PATH",
+        help="input file",
+    )
+    parser.add_argument(
+        "-c",
+        "--count",
+        type=check_count,
+        default=DEFAULT_COUNT,
+        metavar="INT",
+        help="frames count (default: %(default)s)",
+    )
+    parser.add_argument(
+        "-f",
+        "--format",
+        type=check_format,
+        default=DEFAULT_FMT,
+        metavar="STR",
+        help="output format (default: %(default)s), should include %%d format specifier",
+    )
+    parser.add_argument("-p", "--preview", action="store_true", help="generate preview")
+    parser.add_argument(
+        "-P",
+        "--preview-output",
+        metavar="PATH",
+        help="preview path (default: format based frames_output_dir/preview.png)",
+    )
+    parser.add_argument(
+        "-t",
+        "--preview-template",
+        metavar="STR",
+        help="preview tiling template (default: '{α}x{count/α}', where 'α' is square root of 'count')",
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="verbose output")
+    parser.add_argument("-y", action="store_true", help="confirm mkdir -p")
+
+    return parser.parse_args()
+
+
+def choose_video_stream(streams: List[Dict]) -> Optional[Dict]:
+    for stream in streams:
+        if stream.get("codec_type") == "video":
+            return stream
+
+
+def get_probe(file: str) -> Probe:
+    try:
+        cmd = PROBE_CMD % file
+        out = sp.check_output(cmd, shell=True, stderr=sp.DEVNULL, timeout=10)
+        if not out:
+            raise Exception("can't get output from cmd '%s'" % cmd)
+        match probe := json.loads(out.decode()):
+            case {
+                "streams": [
+                    {
+                        "codec_type": str(),
+                        "width": int(),
+                        "height": int(),
+                        "duration": str(),
+                        "r_frame_rate": str(),
+                    }
+                ]
+            }:
+                streams = probe.get("streams")
+                if not isinstance(streams, List) or len(streams) < 1:
+                    exit("can't find streams")
+                if not (vstream := choose_video_stream(streams)):
+                    exit("can't find video stream")
+
+                probe_dict = {}
+                for key in Probe.__annotations__:
+                    if not (value := vstream.get(key)):
+                        exit("can't find %s" % key)
+                    match key:
+                        case "duration":
+                            if not re.match(r"^(\d+(?:\.\d+)?)$", value):
+                                exit("invalid duration '%s'" % value)
+                            value = float(value)
+                        case "r_frame_rate":
+                            if not re.match(r"^\d+(?:\.\d+)?\/\d+$", value):
+                                exit("invalid r_frame_rate: %s" % value)
+                            value = float(eval(value))
+                        case "width" | "height":
+                            value = int(value)
+                    probe_dict[key] = value
+
+                return Probe(**probe_dict)
+        raise Exception("unexpected probe format")
+    except Exception as e:
+        exit(repr(e))
+
+
+def generate_preview(args: argparse.Namespace, probe: Probe):
+    rx_num = re.compile(r"(\d+)")
+
+    def find_num(s: str) -> int:
+        try:
+            if match := rx_num.search(s):
+                return int(match.group())
+        except:
+            pass
+        return 0
+
+    output = args.preview_output or args.format.parent.joinpath(DEFAULT_PREVIEW)
+    rows = args.count // int(math.sqrt(args.count))
+    cols = args.count // rows
+    # swap cols and rows for vertical aspect ratio
+    if (probe.width / probe.height) < 1 and cols < rows:
+        cols, rows = rows, cols
+
+    template = args.preview_template or f"{cols}x{rows}"
+    files = " ".join(
+        str(p)
+        for p in sorted(
+            args.format.parent.glob(f"*{args.format.suffix}"),
+            key=lambda f: find_num(f.stem),
+        )[: cols * rows]
+    )
+    cmd = MOTAGE_CMD % (template, files, output)
+    print(cmd)
+    sp.run(cmd.split())
+
+
+def check_executable(name) -> bool:
+    code, _ = sp.getstatusoutput(f"which {name}")
+    return code == 0
+
+
+if __name__ == "__main__":
+    if not check_executable(FFMPEG):
+        exit(f"{FFMPEG} executable is not available")
+    if not check_executable(FFPROBE):
+        exit(f"{FFPROBE} executable is not available")
+
+    args = parse_args()
+    probe = get_probe(args.file)
+    interval = probe.calc_interval(args.count)
+    verbosity = "" if args.verbose else SILENCE_OPTS
+    if interval >= 2:
+        cmd = EXTRACT_CMD % (verbosity, args.file, interval, args.count, args.format)
+    else:
+        cmd = EXTRACT_ALL_CMD % (verbosity, args.file, args.count, args.format)
+    print(cmd)
+    if sp.run(cmd.split()).returncode == 0 and args.preview:
+        if not check_executable(MONTAGE):
+            exit(f"{MONTAGE} executable is not available")
+        generate_preview(args, probe)
