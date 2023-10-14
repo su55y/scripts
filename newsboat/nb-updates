@@ -2,15 +2,19 @@
 
 from pathlib import Path
 import os
+import subprocess as sp
+
+notify = lambda msg: sp.run(["notify-send", "-a", "newsboat updates", msg])
 
 DATA_HOME = Path(os.environ.get("XDG_DATA_HOME", Path.home().joinpath(".local/share")))
 if not DATA_HOME.exists():
-    exit("%s not found" % DATA_HOME)
+    notify("%s not found" % DATA_HOME)
+    exit(1)
 DB_PATH = DATA_HOME.joinpath("newsboat/cache.db")
 if not DB_PATH.exists():
-    exit("%s not found" % DB_PATH)
+    notify("%s not found" % DB_PATH)
+    exit(1)
 
-import subprocess as sp
 import sqlite3
 from threading import Thread
 
@@ -27,7 +31,6 @@ def select_count() -> int:
 
 
 if __name__ == "__main__":
-    notify = lambda msg: sp.run(["notify-send", "-a", "newsboat updates", msg])
     Thread(target=notify, args=("Start updating...",)).start()
     reload_thread = Thread(target=sp.run, args=("newsboat -x reload".split(),))
     reload_thread.start()
