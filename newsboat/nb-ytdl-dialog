@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+[ -n "$1" ] || exit 1
+url="$1"
+
+DEFAULT_FORMAT="b"
+DEFAULT_OUTPUT="$HOME/Videos/YouTube/%(uploader)s/%(title)s.%(ext)s"
+
+yt-dlp -F "$url"
+read -rp "choose format (default: '$DEFAULT_FORMAT'): " format
+[ -n "$format" ] || format="$DEFAULT_FORMAT"
+read -rp "choose output (default: '$DEFAULT_OUTPUT'): " out
+[ -n "$out" ] || out="$DEFAULT_OUTPUT"
+
+notify-send -i newsboat -a newsboat "⬇️Start downloading '$url'..."
+qid="$(tsp yt-dlp "$url" -f "$format" -o "$out")"
+tsp -D "$qid" notify-send -i newsboat -a newsboat "✅Download done: '$url'"
