@@ -10,10 +10,10 @@ if [ ! -f "$CRONTAB_BAK" ]; then
 	"no crontab"*) ;;
 	*)
 		echo "$crons" >"$CRONTAB_BAK"
-		crontab -r
+		crontab -r && echo "❎all crons was removed"
 		;;
 	esac
 else
-	crontab <"$CRONTAB_BAK"
+	crontab <"$CRONTAB_BAK" && echo "✅all crons was restored"
 	mv "$CRONTAB_BAK" "$CRONTAB_BAK_OLD"
 fi
