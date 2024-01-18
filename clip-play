@@ -1,0 +1,79 @@
+#!/usr/bin/env -S python -u
+
+import argparse
+from datetime import datetime as dt
+import os
+import re
+import subprocess as sp
+import time
+
+APP_NAME = os.path.basename(__file__)
+rx_url = re.compile(
+    r".*youtube\.com\/watch\?v=([\w\d_\-]{11})|.*youtu\.be\/([\w\d_\-]{11})|.*twitch\.tv\/videos\/(\d{10})$"
+)
+
+
+def write_tmp_log(msg):
+    log_file = "/tmp/%s_%s.log" % (APP_NAME, dt.strftime(dt.today(), "%d_%m_%y"))
+    with open(log_file, "a") as f:
+        f.write("%.19s: %s" % (dt.now(), msg))
+
+
+def notify(msg):
+    try:
+        if (c := sp.run(["notify-send", "-a", APP_NAME, msg]).returncode) != 0:
+            raise Exception("notify-send exit code %d" % c)
+    except Exception as e:
+        write_tmp_log("ERROR: can't notify with msg: %r, error: %s" % (msg, e))
+
+
+def read_from_cb():
+    try:
+        return sp.run(
+            ["xclip", "-o", "-selection", "clipboard"],
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except Exception as e:
+        notify("ERROR: %s" % e)
+
+
+def run_mpv(url):
+    try:
+        p = sp.Popen(
+            ["mpv", url],
+            stdout=sp.DEVNULL,
+            stderr=sp.DEVNULL,
+            start_new_session=True,
+        )
+    except Exception as e:
+        notify("ERROR: %s" % e)
+        exit(1)
+    else:
+        for _ in range(25):
+            time.sleep(1)
+            if isinstance(p.poll(), int) and p.returncode != 0:
+                notify("ERROR: mpv return status %d" % p.returncode)
+                exit(1)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(APP_NAME)
+    parser.add_argument("url", nargs="?")
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+
+    url = args.url or read_from_cb()
+    if not url:
+        notify("ERROR: url not provided")
+        exit(1)
+
+    if not rx_url.match(url):
+        notify("ERROR: invalid url %r" % url)
+        exit(1)
+
+    notify("INFO: play %s" % url)
+    run_mpv(url)
