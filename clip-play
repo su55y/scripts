@@ -1,7 +1,6 @@
 #!/usr/bin/env -S python -u
 
 import argparse
-from datetime import datetime as dt
 import os
 import re
 import requests
@@ -17,9 +16,9 @@ rx_url = re.compile(
 
 
 def write_tmp_log(msg):
-    log_file = "/tmp/%s_%s.log" % (APP_NAME, dt.strftime(dt.today(), "%d_%m_%y"))
+    log_file = "/tmp/%s_%s.log" % (APP_NAME, time.strftime("%d_%m_%y"))
     with open(log_file, "a") as f:
-        f.write("%.19s: %s" % (dt.now(), msg))
+        f.write("%s: %s" % (time.strftime("%T"), msg))
 
 
 def notify(msg):
