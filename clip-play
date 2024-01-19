@@ -1,4 +1,4 @@
-#!/usr/bin/env -S python -u
+#!/usr/bin/env -S python3 -u
 
 import argparse
 import os
@@ -69,10 +69,15 @@ def fetch_title(url):
 
 
 def update_history(db, id, title):
-    with sqlite3.connect(db) as conn:
-        cur = conn.cursor()
-        cur.execute("insert into tb_entries (id, title) values (?, ?)", (id, title))
-        conn.commit()
+    try:
+        with sqlite3.connect(db) as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT OR IGNORE INTO titles (url, title, created) values (?, ?, ?)",
+                (id, title, time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())),
+            )
+    except Exception as e:
+        notify("ERROR: %s" % e)
 
 
 def parse_args():
