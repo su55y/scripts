@@ -4,7 +4,10 @@ import argparse
 from datetime import datetime as dt
 import os
 import re
+import requests
+from pathlib import Path
 import subprocess as sp
+import sqlite3
 import time
 
 APP_NAME = os.path.basename(__file__)
@@ -57,9 +60,26 @@ def run_mpv(url):
                 exit(1)
 
 
+def fetch_title(url):
+    try:
+        resp = requests.get("https://youtube.com/oembed?url=%s&format=json" % url)
+        resp.raise_for_status()
+        return resp.json().get("title")
+    except Exception as e:
+        notify("can't fetch title for %r: %s" % (url, e))
+
+
+def update_history(db, id, title):
+    with sqlite3.connect(db) as conn:
+        cur = conn.cursor()
+        cur.execute("insert into tb_entries (id, title) values (?, ?)", (id, title))
+        conn.commit()
+
+
 def parse_args():
     parser = argparse.ArgumentParser(APP_NAME)
     parser.add_argument("url", nargs="?")
+    parser.add_argument("-d", "--history-database", type=Path, help="db path")
     return parser.parse_args()
 
 
@@ -74,6 +94,10 @@ if __name__ == "__main__":
     if not rx_url.match(url):
         notify("ERROR: invalid url %r" % url)
         exit(1)
+
+    if args.history_database and args.history_database.exists():
+        if title := fetch_title(url):
+            update_history(args.history_database, "ID", title)
 
     notify("INFO: play %s" % url)
     run_mpv(url)
