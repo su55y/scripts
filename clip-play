@@ -65,25 +65,30 @@ def fetch_title(url):
         resp.raise_for_status()
         return resp.json().get("title")
     except Exception as e:
-        notify("can't fetch title for %r: %s" % (url, e))
+        notify("ERROR: can't fetch title for %r: %s" % (url, e))
 
 
-def update_history(db, id, title):
+def update_history(db, url, title):
     try:
         with sqlite3.connect(db) as conn:
             cur = conn.cursor()
             cur.execute(
-                "INSERT OR IGNORE INTO titles (url, title, created) values (?, ?, ?)",
-                (id, title, time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())),
+                "INSERT OR IGNORE INTO titles (url, title, created) VALUES (?, ?, ?)",
+                (url, title, time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())),
             )
     except Exception as e:
-        notify("ERROR: %s" % e)
+        notify("DB ERROR: %s" % e)
 
 
 def parse_args():
     parser = argparse.ArgumentParser(APP_NAME)
     parser.add_argument("url", nargs="?")
-    parser.add_argument("-d", "--history-database", type=Path, help="db path")
+    parser.add_argument(
+        "-d",
+        "--history-database",
+        type=Path,
+        help="playlist-ctl compatible database path",
+    )
     return parser.parse_args()
 
 
@@ -99,9 +104,12 @@ if __name__ == "__main__":
         notify("ERROR: invalid url %r" % url)
         exit(1)
 
-    if args.history_database and args.history_database.exists():
-        if title := fetch_title(url):
-            update_history(args.history_database, "ID", title)
+    if args.history_database:
+        if args.history_database.expanduser().exists():
+            if title := fetch_title(url):
+                update_history(str(args.history_database), url, title)
+        else:
+            notify(f"{args.history_database} not exists")
 
     notify("INFO: play %s" % url)
     run_mpv(url)
