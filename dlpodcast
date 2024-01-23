@@ -15,5 +15,4 @@ output="$2"
 ratio="$3"
 [ -n "$ratio" ] || ratio="1.35"
 
-
-yt-dlp "$1" -f 'bestaudio/best' -o "$output.%(ext)s" --exec "ffmpeg -i '$output.%(ext)s' -filter:a atempo='$ratio' '${output}x${ratio}.%(ext)s'"
+yt-dlp "$1" -f "bestaudio/best" -o "$output.%(ext)s" -R infinite --exec "ffmpeg -i '$output.%(ext)s' -filter:a atempo='$ratio' '${output}x${ratio}.%(ext)s'"
