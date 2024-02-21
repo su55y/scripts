@@ -1,0 +1,5 @@
+#!/bin/sh
+
+[ -n "$1" ] || exit 1
+setsid -f alacritty --class RadioTerm --config-file "${XDG_CONFIG_HOME}/alacritty/radio.toml" \
+	-e sh -c "mpv $1 --no-vid --ytdl-raw-options=retries=infinite; read -r _"
