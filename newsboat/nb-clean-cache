@@ -1,9 +1,8 @@
 #!/bin/sh
 
-CLEANER="${HOME}/.local/share/newsboat/cleaner" # cleaner binary
+CLEANER="${XDG_DATA_HOME:-$HOME/.local/share}/newsboat/cleaner" # cleaner binary
 
 total=$("$CLEANER")
-case $total in
-0) ;;
-*) notify-send -a "newsboat" "$total last entries was deleted" ;;
-esac
+if [ $total -gt 0 ]; then
+	notify-send -a "newsboat" "$total last entries was deleted"
+fi
