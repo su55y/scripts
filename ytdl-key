@@ -1,0 +1,19 @@
+#!/bin/sh
+
+die() {
+	[ -n "$1" ] && notify-send -a "ytdl" "$1"
+	exit 1
+}
+
+url="$1"
+[ -n "$url" ] || url="$(xclip -o -selection clipboard)"
+[ -n "$url" ] || die "no url passed"
+
+echo "$url" |
+	grep -qP '^(?:https\:\/\/)?(?:www\.)?(youtube\.com\/watch\?v=[A-Za-z0-9\-_]{11}|youtu\.be\/[A-Za-z0-9\-_]{11})' ||
+	die "invalid url '$url'"
+echo "url passed so far"
+
+notify-send -a ytdl "⬇️Start downloading '$url'..."
+qid="$(tsp yt-dlp "$url" -o "$HOME/Videos/YouTube/%(uploader)s/%(title)s.%(ext)s" -R infinite || notify-send -a ytdl "❌Download failsed")"
+tsp -D "$qid" notify-send -a ytdl "✅Download done: '$url'"
