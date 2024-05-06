@@ -1,0 +1,21 @@
+#!/bin/sh
+
+start_mpd() {
+	mpd
+}
+
+pidof mpd || {
+	start_mpd && notify-send -a "mpd-toggle" "mpd started"
+	if [ $? -ne 0 ]; then
+		notify-send -a "mpd-toggle" "something went wrong (start)"
+		exit 1
+	fi
+	exit 0
+}
+
+killall mpd
+if [ $? -eq 0 ]; then
+	notify-send -a "mpd-toggle" "mpd killed"
+else
+	notify-send -a "mpd-toggle" "something went wrong (kill)"
+fi
