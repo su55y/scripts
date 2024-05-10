@@ -13,6 +13,9 @@ APP_NAME = os.path.basename(__file__)
 rx_url = re.compile(
     r".*youtube\.com\/watch\?v=([\w\d_\-]{11})|.*youtu\.be\/([\w\d_\-]{11})|.*twitch\.tv\/videos\/(\d{10})$"
 )
+rx_yt_url = re.compile(
+    r".*youtube\.com\/watch\?v=([\w\d_\-]{11})|.*youtu\.be\/([\w\d_\-]{11})"
+)
 
 
 def write_tmp_log(msg):
@@ -106,8 +109,10 @@ if __name__ == "__main__":
 
     if args.history_database:
         if args.history_database.expanduser().exists():
-            if title := fetch_title(url):
+            if rx_yt_url.match(url) and (title := fetch_title(url)):
                 update_history(str(args.history_database), url, title)
+            else:
+                update_history(str(args.history_database), url, url)
         else:
             notify(f"{args.history_database} not exists")
 
