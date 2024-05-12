@@ -3,6 +3,7 @@
 import argparse
 import os
 import re
+from typing import Dict
 import requests
 from pathlib import Path
 import subprocess as sp
@@ -16,6 +17,7 @@ rx_url = re.compile(
 rx_yt_url = re.compile(
     r".*youtube\.com\/watch\?v=([\w\d_\-]{11})|.*youtu\.be\/([\w\d_\-]{11})"
 )
+rx_yt_dlp_title = re.compile(r".*twitch\.tv\/videos\/\d{10}")
 
 
 def write_tmp_log(msg):
@@ -71,6 +73,18 @@ def fetch_title(url):
         notify("ERROR: can't fetch title for %r: %s" % (url, e))
 
 
+def fetch_title_yt_dlp(url):
+    try:
+        from yt_dlp import YoutubeDL
+    except ImportError:
+        return
+    with YoutubeDL() as ytdl:
+        info = ytdl.extract_info(url, download=False)
+        if not info or not isinstance(info, Dict):
+            exit("can't extract info")
+        return info.get("title")
+
+
 def update_history(db, url, title):
     try:
         with sqlite3.connect(db) as conn:
@@ -112,7 +126,10 @@ if __name__ == "__main__":
             if rx_yt_url.match(url) and (title := fetch_title(url)):
                 update_history(str(args.history_database), url, title)
             else:
-                update_history(str(args.history_database), url, url)
+                title = url
+                if rx_yt_dlp_title.match(url):
+                    title = fetch_title_yt_dlp(url) or url
+                update_history(str(args.history_database), url, title)
         else:
             notify(f"{args.history_database} not exists")
 
