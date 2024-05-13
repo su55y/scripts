@@ -85,6 +85,13 @@ def fetch_title_yt_dlp(url):
         return info.get("title")
 
 
+def get_title(url):
+    if rx_yt_url.match(url):
+        return fetch_title(url)
+    if rx_yt_dlp_title.match(url):
+        return fetch_title_yt_dlp(url)
+
+
 def update_history(db, url, title):
     try:
         with sqlite3.connect(db) as conn:
@@ -122,16 +129,11 @@ if __name__ == "__main__":
         exit(1)
 
     if args.history_database:
-        if args.history_database.expanduser().exists():
-            if rx_yt_url.match(url) and (title := fetch_title(url)):
-                update_history(str(args.history_database), url, title)
-            else:
-                title = url
-                if rx_yt_dlp_title.match(url):
-                    title = fetch_title_yt_dlp(url) or url
-                update_history(str(args.history_database), url, title)
-        else:
+        if not args.history_database.expanduser().exists():
             notify(f"{args.history_database} not exists")
+            exit(1)
+        title = get_title(url) or url
+        update_history(str(args.history_database), url, title)
 
     notify("INFO: play %s" % url)
     run_mpv(url)
