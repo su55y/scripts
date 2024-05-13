@@ -81,7 +81,8 @@ def fetch_title_yt_dlp(url):
     with YoutubeDL() as ytdl:
         info = ytdl.extract_info(url, download=False)
         if not info or not isinstance(info, Dict):
-            exit("can't extract info")
+            notify("invalid yt-dlp info type %s" % type(info))
+            return
         return info.get("title")
 
 
