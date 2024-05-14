@@ -1,0 +1,18 @@
+#!/bin/sh
+
+die() {
+	[ -n "$1" ] && notify-send -a yt-dlp "$1"
+	exit 1
+}
+
+url="$1"
+[ -n "$url" ] || url="$(xclip -o -selection clipboard)"
+[ -n "$url" ] || die "no url passed"
+
+echo "$url" |
+	grep -qP '^(?:https\:\/\/)?(?:www\.)?(youtube\.com\/playlist\?list=[A-Za-z0-9\-_]{34})' ||
+	die "invalid url '$url'"
+
+notify-send -a yt-dlp "⬇️Start downloading '$url'..."
+qid="$(tsp yt-dlp "$url" -o "$HOME/Videos/YouTube/%(uploader)s/%(playlist_title)s/%(playlist_index)d %(title)s.%(ext)s" -R infinite || notify-send -a yt-dlp "❌Download failed")"
+tsp -D "$qid" notify-send -a yt-dlp "✅Download done: '$url'"
