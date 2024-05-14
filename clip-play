@@ -2,13 +2,14 @@
 
 import argparse
 import os
-import re
-from typing import Dict
-import requests
 from pathlib import Path
+import re
+import requests
 import subprocess as sp
 import sqlite3
+import tempfile
 import time
+from typing import Dict
 
 APP_NAME = os.path.basename(__file__)
 rx_url = re.compile(
@@ -21,9 +22,12 @@ rx_yt_dlp_title = re.compile(r".*twitch\.tv\/videos\/\d{10}")
 
 
 def write_tmp_log(msg):
-    log_file = "/tmp/%s_%s.log" % (APP_NAME, time.strftime("%d_%m_%y"))
+    temp_dir = Path(tempfile.gettempdir())
+    if not temp_dir.exists() or not temp_dir.is_dir():
+        return
+    log_file = temp_dir.joinpath("%s_%s.log" % (APP_NAME, time.strftime("%d_%m_%y")))
     with open(log_file, "a") as f:
-        f.write("%s: %s" % (time.strftime("%T"), msg))
+        f.write("%s: %s\n" % (time.strftime("%T"), msg))
 
 
 def notify(msg):
@@ -118,6 +122,8 @@ def parse_args():
 
 
 if __name__ == "__main__":
+    write_tmp_log("testing...")
+    write_tmp_log("x2 testing...")
     args = parse_args()
 
     url = args.url or read_from_cb()
