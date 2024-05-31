@@ -5,14 +5,26 @@ die() {
 	exit 1
 }
 
+help_msg="TODO"
+
+case $@ in
+-h | --h*)
+	echo "$help_msg"
+	exit 0
+	;;
+esac
+
 url="$1"
 [ -n "$url" ] || url="$(xclip -o -selection clipboard)"
 [ -n "$url" ] || die "no url passed"
+
+output="$HOME/Videos/YouTube/%(uploader)s/%(title)s.%(ext)s"
+[ -n "$2" ] && output="$2"
 
 echo "$url" |
 	grep -qP '^(?:https\:\/\/)?(?:www\.)?(youtube\.com\/watch\?v=[A-Za-z0-9\-_]{11}|youtu\.be\/[A-Za-z0-9\-_]{11})' ||
 	die "invalid url '$url'"
 
 notify-send -a yt-dlp "⬇️Start downloading '$url'..."
-qid="$(tsp yt-dlp "$url" -o "$HOME/Videos/YouTube/%(uploader)s/%(title)s.%(ext)s" -R infinite || notify-send -a yt-dlp "❌Download failed")"
+qid="$(tsp yt-dlp "$url" -o "$output" -R infinite || notify-send -a yt-dlp "❌Download failed")"
 tsp -D "$qid" notify-send -a yt-dlp "✅Download done: '$url'"
