@@ -5,11 +5,17 @@ die() {
 	exit 1
 }
 
-show_help() {
-	echo "TODO"
-}
-
 DEFAULT_OUTPUT="$HOME/Videos/YouTube/%(uploader)s/%(title)s.%(ext)s"
+
+show_help() {
+	cat <<EOF
+Usage: $0 [-u url] [-o output] [-h]
+
+Options:
+  -u  url to download, can be optional if url present in clipboard
+  -o  output path, optional (default: '$DEFAULT_OUTPUT')
+EOF
+}
 
 url=""
 output=""
