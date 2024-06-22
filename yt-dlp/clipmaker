@@ -1,12 +1,12 @@
 #!/usr/bin/env -S python -u
 
 import argparse
-import datetime as dt
 import re
 import subprocess
+import time
 from typing import Optional, Dict
 
-ffmpeg_cmd = """ffmpeg -hide_banner -loglevel warning -stats {y} {start} {to}
+FFMPEG_CMD = """ffmpeg -hide_banner -loglevel warning -stats {y} {start} {to}
     -i {stream} {end} -c copy -avoid_negative_ts make_zero {output}"""
 filters = {"ext": "mhtml", "filesize": None, "format_note": "storyboard"}
 
@@ -15,23 +15,23 @@ def parse_agrs() -> argparse.Namespace:
     rx_timestamp = re.compile(
         r"^(\d+|\d:[0-5]\d|[0-5]?\d:[0-5]\d|\d+:[0-5]\d:[0-5]\d)$"
     )
+    rx_url = re.compile(
+        r".*youtube\.com\/watch\?v=([\w\d_\-]{11})|.*youtu\.be\/([\w\d_\-]{11})|.*twitch\.tv\/videos\/(\d{10})$"
+    )
 
     def validate_url(url: str) -> Optional[str]:
-        if not re.match(
-            r".*youtube\.com\/watch\?v=([\w\d_\-]{11})|.*youtu\.be\/([\w\d_\-]{11})|.*twitch\.tv\/videos\/(\d{10})$",
-            url,
-        ):
+        if not rx_url.match(url):
             raise argparse.ArgumentTypeError("invalid url %r" % url)
         return url
 
     def validate_timestamp(timestamp: Optional[str] = None) -> Optional[str]:
         if timestamp is not None and not rx_timestamp.match(timestamp):
-            raise argparse.ArgumentTypeError("invalid timestamp %r'" % timestamp)
+            raise argparse.ArgumentTypeError("invalid timestamp %r" % timestamp)
         return timestamp
 
     def validate_resolution(resolution: str) -> Optional[str]:
         if not re.match(r"^\d{3,4}x\d{3,4}$", resolution):
-            raise argparse.ArgumentTypeError(f"invalid resolution %r" % resolution)
+            raise argparse.ArgumentTypeError("invalid resolution %r" % resolution)
         return resolution
 
     parser = argparse.ArgumentParser(
@@ -65,14 +65,14 @@ def parse_agrs() -> argparse.Namespace:
         "--resolution",
         type=validate_resolution,
         default="1280x720",
-        help="resolution of clip to download (default: %(default)s)",
+        help="clip resolution (default: %(default)s)",
     )
     parser.add_argument(
         "-o",
         "--output",
-        default=f"clip{dt.datetime.now().strftime('%s')[-6:]}.mp4",
+        default=f"clip{time.strftime('%s')[-6:]}.mp4",
         metavar="PATH",
-        help="path to output (default: %(default)s)",
+        help="output path (default: %(default)s)",
     )
     parser.add_argument(
         "-f",
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     args = parse_agrs()
     url = choose_format(args.url, args.resolution, args.choose)
     subprocess.run(
-        ffmpeg_cmd.format(
+        FFMPEG_CMD.format(
             y="-y" if args.force else "",
             start="-ss %s" % (args.start or 0),
             to="-to %s" % args.to if args.to else "",
