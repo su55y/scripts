@@ -6,8 +6,10 @@ import subprocess
 import time
 from typing import Optional, Dict
 
+# FFMPEG_CMD = """ffmpeg -hide_banner -loglevel warning -stats {y} {start} {to}
+#     -i {stream} {end} -c copy -avoid_negative_ts make_zero {output}"""
 FFMPEG_CMD = """ffmpeg -hide_banner -loglevel warning -stats {y} {start} {to}
-    -i {stream} {end} -c copy -avoid_negative_ts make_zero {output}"""
+    -i {v_stream} {start} {to} -i {a_stream} {end} -map 0:v -map 1:a -avoid_negative_ts make_zero {output}"""
 filters = {"ext": "mhtml", "filesize": None, "format_note": "storyboard"}
 
 
@@ -81,6 +83,12 @@ def parse_agrs() -> argparse.Namespace:
         help="overwrite output file if exists",
     )
     parser.add_argument("-c", "--choose", action="store_true", help="choose format")
+    parser.add_argument(
+        "-C",
+        "--choice",
+        default="136+140",
+        help="yt f22 related (default: %(default)r)",
+    )
     return parser.parse_args()
 
 
@@ -91,7 +99,9 @@ def filter_formats(f: Dict) -> bool:
     return True
 
 
-def choose_format(url: str, resolution: str, choose: bool) -> str:
+def choose_format(
+    url: str, resolution: str, choose: bool, choice: str
+) -> tuple[str, str]:
     try:
         from yt_dlp import YoutubeDL
     except ImportError as e:
@@ -105,35 +115,51 @@ def choose_format(url: str, resolution: str, choose: bool) -> str:
             exit("can't get formats from info")
         info["formats"] = filter(filter_formats, info["formats"])
         formats_map = {f["format_id"]: f for f in info["formats"]}
+
         if choose:
             print(ydl.render_formats_table({**info, "formats": formats_map.values()}))
             while True:
-                choice = input("format id: ")
-                if format := formats_map.get(choice):
-                    return format["url"]
-                print("not found format %r" % choice)
+                choice = input("formats pair string: ")
+                v, a = choice.split("+")
+                if v not in formats_map.keys() or a not in formats_map.keys():
+                    print("not found format %r" % choice)
+                return formats_map[v]["url"], formats_map[a]["url"]
         else:
-            for f in formats_map.values():
-                if not f.get("vcodec") or not f.get("acodec"):
-                    continue
-                if f.get("resolution") == resolution:
-                    if not re.match(r"^https.+", url := f.pop("url")):
-                        exit("can't get stream url from format: %s" % f)
-                    print("choosed format: %s" % f)
-                    return url
-            exit("resolution %r not available" % resolution)
+            v, a = choice.split("+")
+            if v not in formats_map.keys() or a not in formats_map.keys():
+                print("not found format %r" % choice)
+            return formats_map[v]["url"], formats_map[a]["url"]
+            # else:
+            #     for f in formats_map.values():
+            #         if not f.get("vcodec") or not f.get("acodec"):
+            #             continue
+            #         if f.get("resolution") == resolution:
+            #             if not re.match(r"^https.+", url := f.pop("url")):
+            #                 exit("can't get stream url from format: %s" % f)
+            #             print("choosed format: %s" % f)
+            #             return url
+            # exit("resolution %r not available" % resolution)
 
 
 if __name__ == "__main__":
     args = parse_agrs()
-    url = choose_format(args.url, args.resolution, args.choose)
-    subprocess.run(
-        FFMPEG_CMD.format(
-            y="-y" if args.force else "",
-            start="-ss %s" % (args.start or 0),
-            to="-to %s" % args.to if args.to else "",
-            stream=url,
-            end="-t %s" % args.duration if args.duration else "",
-            output=args.output,
-        ).split()
-    )
+    v_url, a_url = choose_format(args.url, args.resolution, args.choose, args.choice)
+    # old_cmd = FFMPEG_CMD.format(
+    #     y="-y" if args.force else "",
+    #     start="-ss %s" % (args.start or 0),
+    #     to="-to %s" % args.to if args.to else "",
+    #     stream=url,
+    #     end="-t %s" % args.duration if args.duration else "",
+    #     output=args.output,
+    # ).split()
+    cmd = FFMPEG_CMD.format(
+        y="-y" if args.force else "",
+        start="-ss %s" % (args.start or 0),
+        to="-to %s" % args.to if args.to else "",
+        v_stream=v_url,
+        a_stream=a_url,
+        end="-t %s" % args.duration if args.duration else "",
+        output=args.output,
+    ).split()
+
+    subprocess.run(cmd)
