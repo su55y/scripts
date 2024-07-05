@@ -126,30 +126,36 @@ def choose_format(
         info["formats"] = filter(filter_formats, info["formats"])
         formats_map = {f["format_id"]: f for f in info["formats"]}
 
+        def check_formats(*formats) -> bool:
+            for f in formats:
+                if f not in formats_map.keys():
+                    print("format %r not found" % f)
+                    return False
+            return True
+
         if choose:
             print(ydl.render_formats_table({**info, "formats": formats_map.values()}))
             while True:
                 format = input("formats pair string: ")
                 v, a = format.split("+")
-                if v not in formats_map.keys() or a not in formats_map.keys():
-                    print("not found format %r" % format)
-                return formats_map[v]["url"], formats_map[a]["url"]
+                if not check_formats(v, a):
+                    continue
         else:
             v, a = format.split("+")
-            if not (v in formats_map.keys() and a in formats_map.keys()):
-                print("not found format %r" % format)
+            if not check_formats(v, a):
+                exit(1)
 
-            return formats_map[v]["url"], formats_map[a]["url"]
-            # else:
-            #     for f in formats_map.values():
-            #         if not f.get("vcodec") or not f.get("acodec"):
-            #             continue
-            #         if f.get("resolution") == resolution:
-            #             if not re.match(r"^https.+", url := f.pop("url")):
-            #                 exit("can't get stream url from format: %s" % f)
-            #             print("choosed format: %s" % f)
-            #             return url
-            # exit("resolution %r not available" % resolution)
+        return formats_map[v]["url"], formats_map[a]["url"]
+        # else:
+        #     for f in formats_map.values():
+        #         if not f.get("vcodec") or not f.get("acodec"):
+        #             continue
+        #         if f.get("resolution") == resolution:
+        #             if not re.match(r"^https.+", url := f.pop("url")):
+        #                 exit("can't get stream url from format: %s" % f)
+        #             print("choosed format: %s" % f)
+        #             return url
+        # exit("resolution %r not available" % resolution)
 
 
 if __name__ == "__main__":
