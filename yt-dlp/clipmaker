@@ -36,6 +36,13 @@ def parse_agrs() -> argparse.Namespace:
             raise argparse.ArgumentTypeError("invalid resolution %r" % resolution)
         return resolution
 
+    def validate_format(format: str) -> Optional[str]:
+        if not re.match(r"^\d{2-3}\+\d{2-3}$", format):
+            raise argparse.ArgumentTypeError(
+                "invalid formats pair %r (should be '\\d+\\d')" % format
+            )
+        return format
+
     parser = argparse.ArgumentParser(
         prog="clipmaker",
         description="Download clips from YouTube or Twitch",
@@ -77,17 +84,20 @@ def parse_agrs() -> argparse.Namespace:
         help="output path (default: %(default)s)",
     )
     parser.add_argument(
-        "-f",
+        "-F",
         "--force",
         action="store_true",
         help="overwrite output file if exists",
     )
-    parser.add_argument("-c", "--choose", action="store_true", help="choose format")
     parser.add_argument(
-        "-C",
-        "--choice",
+        "-c", "--choose", action="store_true", help="print available formats to choose"
+    )
+    parser.add_argument(
+        "-f",
+        "--format",
         default="136+140",
-        help="yt f22 related (default: %(default)r)",
+        type=validate_format,
+        help="formats pair string (default: %(default)r)",
     )
     return parser.parse_args()
 
@@ -100,7 +110,7 @@ def filter_formats(f: Dict) -> bool:
 
 
 def choose_format(
-    url: str, resolution: str, choose: bool, choice: str
+    url: str, resolution: str, choose: bool, format: str
 ) -> tuple[str, str]:
     try:
         from yt_dlp import YoutubeDL
@@ -119,15 +129,16 @@ def choose_format(
         if choose:
             print(ydl.render_formats_table({**info, "formats": formats_map.values()}))
             while True:
-                choice = input("formats pair string: ")
-                v, a = choice.split("+")
+                format = input("formats pair string: ")
+                v, a = format.split("+")
                 if v not in formats_map.keys() or a not in formats_map.keys():
-                    print("not found format %r" % choice)
+                    print("not found format %r" % format)
                 return formats_map[v]["url"], formats_map[a]["url"]
         else:
-            v, a = choice.split("+")
-            if v not in formats_map.keys() or a not in formats_map.keys():
-                print("not found format %r" % choice)
+            v, a = format.split("+")
+            if not (v in formats_map.keys() and a in formats_map.keys()):
+                print("not found format %r" % format)
+
             return formats_map[v]["url"], formats_map[a]["url"]
             # else:
             #     for f in formats_map.values():
@@ -143,7 +154,7 @@ def choose_format(
 
 if __name__ == "__main__":
     args = parse_agrs()
-    v_url, a_url = choose_format(args.url, args.resolution, args.choose, args.choice)
+    v_url, a_url = choose_format(args.url, args.resolution, args.choose, args.format)
     # old_cmd = FFMPEG_CMD.format(
     #     y="-y" if args.force else "",
     #     start="-ss %s" % (args.start or 0),
