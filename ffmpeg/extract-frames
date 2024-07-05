@@ -18,7 +18,7 @@ EXTRACT_CMD = f"{FFMPEG} %s -i %s -vf thumbnail=%s,setpts=N/TB -r 1 -vframes %d 
 EXTRACT_ALL_CMD = f"{FFMPEG} %s -i %s -vframes %d %s"
 SILENCE_OPTS = "-hide_banner -loglevel warning -stats"
 PROBE_CMD = f"{FFPROBE} -v quiet -show_streams -select_streams v:0 -of json %s"
-MOTAGE_CMD = f"{MONTAGE} -geometry +0+0 -tile %s %s %s"
+MONTAGE_CMD = f"{MONTAGE} -geometry +0+0 -tile %s %s %s"
 
 DEFAULT_COUNT = 10
 DEFAULT_FMT = "frames/frame%02d.png"
@@ -195,7 +195,7 @@ def generate_preview(args: argparse.Namespace, probe: Probe):
             key=lambda f: find_num(f.stem),
         )[: cols * rows]
     )
-    cmd = MOTAGE_CMD % (template, files, output)
+    cmd = MONTAGE_CMD % (template, files, output)
     print(cmd)
     sp.run(cmd.split())
 
