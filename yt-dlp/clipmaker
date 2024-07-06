@@ -6,8 +6,8 @@ import subprocess
 import time
 from typing import Optional, Dict
 
-# FFMPEG_CMD = """ffmpeg -hide_banner -loglevel warning -stats {y} {start} {to}
-#     -i {stream} {end} -c copy -avoid_negative_ts make_zero {output}"""
+FFMPEG_CMD_NOT_YT = """ffmpeg -hide_banner -loglevel warning -stats {y} {start} {to}
+-i {stream} {end} -c copy -avoid_negative_ts make_zero {output}"""
 FFMPEG_CMD = """ffmpeg -hide_banner -loglevel warning -stats {y} {start} {to}
     -i {v_stream} {start} {to} -i {a_stream} {end} -map 0:v -map 1:a -avoid_negative_ts make_zero {output}"""
 filters = {"ext": "mhtml", "filesize": None, "format_note": "storyboard"}
@@ -109,8 +109,36 @@ def filter_formats(f: Dict) -> bool:
     return True
 
 
+def choose_format_alt(url: str, resolution: str) -> str:
+    try:
+        from yt_dlp import YoutubeDL
+    except ImportError as e:
+        exit(f"{e}\nhttps://github.com/yt-dlp/yt-dlp#installation")
+
+    with YoutubeDL() as ydl:
+        info = ydl.extract_info(url, download=False)
+        if not info or not isinstance(info, Dict):
+            exit("can't extract info")
+        if not info.get("formats"):
+            exit("can't get formats from info")
+
+        info["formats"] = filter(filter_formats, info["formats"])
+        formats_map = {f["format_id"]: f for f in info["formats"]}
+        for f in formats_map.values():
+            if not f.get("vcodec") or not f.get("acodec"):
+                continue
+            if f.get("resolution") == resolution:
+                if not re.match(r"^https.+", url := f.pop("url")):
+                    exit("can't get stream url from format: %s" % f)
+                print("choosed format: %s" % f)
+                return url
+        exit("resolution %r not available" % resolution)
+
+
 def choose_format(
-    url: str, resolution: str, choose: bool, format: str
+    url: str,
+    choose: bool,
+    format: str,
 ) -> tuple[str, str]:
     try:
         from yt_dlp import YoutubeDL
@@ -123,6 +151,7 @@ def choose_format(
             exit("can't extract info")
         if not info.get("formats"):
             exit("can't get formats from info")
+
         info["formats"] = filter(filter_formats, info["formats"])
         formats_map = {f["format_id"]: f for f in info["formats"]}
 
@@ -146,37 +175,33 @@ def choose_format(
                 exit(1)
 
         return formats_map[v]["url"], formats_map[a]["url"]
-        # else:
-        #     for f in formats_map.values():
-        #         if not f.get("vcodec") or not f.get("acodec"):
-        #             continue
-        #         if f.get("resolution") == resolution:
-        #             if not re.match(r"^https.+", url := f.pop("url")):
-        #                 exit("can't get stream url from format: %s" % f)
-        #             print("choosed format: %s" % f)
-        #             return url
-        # exit("resolution %r not available" % resolution)
 
 
 if __name__ == "__main__":
     args = parse_agrs()
-    v_url, a_url = choose_format(args.url, args.resolution, args.choose, args.format)
-    # old_cmd = FFMPEG_CMD.format(
-    #     y="-y" if args.force else "",
-    #     start="-ss %s" % (args.start or 0),
-    #     to="-to %s" % args.to if args.to else "",
-    #     stream=url,
-    #     end="-t %s" % args.duration if args.duration else "",
-    #     output=args.output,
-    # ).split()
-    cmd = FFMPEG_CMD.format(
-        y="-y" if args.force else "",
-        start="-ss %s" % (args.start or 0),
-        to="-to %s" % args.to if args.to else "",
-        v_stream=v_url,
-        a_stream=a_url,
-        end="-t %s" % args.duration if args.duration else "",
-        output=args.output,
-    ).split()
+    if not re.match(
+        r".*youtube\.com\/watch\?v=([\w\d_\-]{11})|.*youtu\.be\/([\w\d_\-]{11})",
+        args.url,
+    ):
+        url = choose_format_alt(args.url, args.resolution)
+        cmd = FFMPEG_CMD_NOT_YT.format(
+            y="-y" if args.force else "",
+            start="-ss %s" % (args.start or 0),
+            to="-to %s" % args.to if args.to else "",
+            stream=url,
+            end="-t %s" % args.duration if args.duration else "",
+            output=args.output,
+        ).split()
+    else:
+        v_url, a_url = choose_format(args.url, args.choose, args.format)
+        cmd = FFMPEG_CMD.format(
+            y="-y" if args.force else "",
+            start="-ss %s" % (args.start or 0),
+            to="-to %s" % args.to if args.to else "",
+            v_stream=v_url,
+            a_stream=a_url,
+            end="-t %s" % args.duration if args.duration else "",
+            output=args.output,
+        ).split()
 
     subprocess.run(cmd)
