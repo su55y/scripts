@@ -10,7 +10,6 @@ FFMPEG_CMD_NOT_YT = """ffmpeg -hide_banner -loglevel warning -stats {y} {start} 
 -i {stream} {end} -c copy -avoid_negative_ts make_zero {output}"""
 FFMPEG_CMD = """ffmpeg -hide_banner -loglevel warning -stats {y} {start} {to}
     -i {v_stream} {start} {to} -i {a_stream} {end} -map 0:v -map 1:a -avoid_negative_ts make_zero {output}"""
-filters = {"ext": "mhtml", "filesize": None, "format_note": "storyboard"}
 
 
 def parse_agrs() -> argparse.Namespace:
@@ -102,14 +101,15 @@ def parse_agrs() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def filter_formats(f: Dict) -> bool:
+def filter_formats(formats: dict) -> bool:
+    filters = {"ext": "mhtml", "filesize": None, "format_note": "storyboard"}
     for k, v in filters.items():
-        if f.get(k) == v:
+        if formats.get(k) == v:
             return False
     return True
 
 
-def choose_format_alt(url: str, resolution: str) -> str:
+def get_formats_map(url: str) -> dict:
     try:
         from yt_dlp import YoutubeDL
     except ImportError as e:
@@ -123,23 +123,10 @@ def choose_format_alt(url: str, resolution: str) -> str:
             exit("can't get formats from info")
 
         info["formats"] = filter(filter_formats, info["formats"])
-        formats_map = {f["format_id"]: f for f in info["formats"]}
-        for f in formats_map.values():
-            if not f.get("vcodec") or not f.get("acodec"):
-                continue
-            if f.get("resolution") == resolution:
-                if not re.match(r"^https.+", url := f.pop("url")):
-                    exit("can't get stream url from format: %s" % f)
-                print("choosed format: %s" % f)
-                return url
-        exit("resolution %r not available" % resolution)
+        return {f["format_id"]: f for f in info["formats"]}
 
 
-def choose_format(
-    url: str,
-    choose: bool,
-    format: str,
-) -> tuple[str, str]:
+def get_url(url: str, choose: bool, format: str) -> tuple[str, str]:
     try:
         from yt_dlp import YoutubeDL
     except ImportError as e:
@@ -177,13 +164,27 @@ def choose_format(
         return formats_map[v]["url"], formats_map[a]["url"]
 
 
+def get_url_alt(url: str, resolution: str) -> str:
+    formats_map = get_formats_map(url)
+
+    for f in formats_map.values():
+        if not f.get("vcodec") or not f.get("acodec"):
+            continue
+        if f.get("resolution") == resolution:
+            if not re.match(r"^https.+", url := f.pop("url")):
+                exit("can't get stream url from format: %s" % f)
+            print("choosed format: %s" % f)
+            return url
+    exit("resolution %r not available" % resolution)
+
+
 if __name__ == "__main__":
     args = parse_agrs()
     if not re.match(
         r".*youtube\.com\/watch\?v=([\w\d_\-]{11})|.*youtu\.be\/([\w\d_\-]{11})",
         args.url,
     ):
-        url = choose_format_alt(args.url, args.resolution)
+        url = get_url_alt(args.url, args.resolution)
         cmd = FFMPEG_CMD_NOT_YT.format(
             y="-y" if args.force else "",
             start="-ss %s" % (args.start or 0),
@@ -193,7 +194,7 @@ if __name__ == "__main__":
             output=args.output,
         ).split()
     else:
-        v_url, a_url = choose_format(args.url, args.choose, args.format)
+        v_url, a_url = get_url(args.url, args.choose, args.format)
         cmd = FFMPEG_CMD.format(
             y="-y" if args.force else "",
             start="-ss %s" % (args.start or 0),
