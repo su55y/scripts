@@ -36,7 +36,7 @@ def parse_agrs() -> argparse.Namespace:
         return resolution
 
     def validate_format(format: str) -> Optional[str]:
-        if not re.match(r"^\d{2-3}\+\d{2-3}$", format):
+        if not re.match(r"^\d{2,3}\+\d{2,3}$", format):
             raise argparse.ArgumentTypeError(
                 "invalid formats pair %r (should be '\\d+\\d')" % format
             )
@@ -102,7 +102,7 @@ def parse_agrs() -> argparse.Namespace:
 
 
 def filter_formats(formats: dict) -> bool:
-    filters = {"ext": "mhtml", "filesize": None, "format_note": "storyboard"}
+    filters = {"ext": "mhtml", "format_note": "storyboard"}
     for k, v in filters.items():
         if formats.get(k) == v:
             return False
@@ -122,8 +122,7 @@ def get_formats_map(url: str) -> dict:
         if not info.get("formats"):
             exit("can't get formats from info")
 
-        info["formats"] = filter(filter_formats, info["formats"])
-        return {f["format_id"]: f for f in info["formats"]}
+        return {f["format_id"]: f for f in filter(filter_formats, info["formats"])}
 
 
 def get_url(url: str, choose: bool, format: str) -> tuple[str, str]:
