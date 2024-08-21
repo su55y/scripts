@@ -9,20 +9,23 @@ DEFAULT_OUTPUT="$HOME/Videos/YouTube/%(uploader)s/%(title)s.%(ext)s"
 
 show_help() {
 	cat <<EOF
-Usage: $0 [-u url] [-o output] [-h]
+Usage: $0 [-u url] [-o output] [-h] [-t]
 
 Options:
   -u  url to download, can be optional if url present in clipboard
   -o  output path, optional (default: '$DEFAULT_OUTPUT')
+  -t  notify with video title instead of url
 EOF
 }
 
 url=""
 output=""
+title=""
+use_title=0
 
 parse_args() {
 	OPTIND=1
-	while getopts "h?uo:" opt; do
+	while getopts "h?tuo:" opt; do
 		case "$opt" in
 		h | \?)
 			show_help
@@ -30,6 +33,7 @@ parse_args() {
 			;;
 		u) url=$OPTARG ;;
 		o) output=$OPTARG ;;
+		t) use_title=1 ;;
 		esac
 	done
 
@@ -48,6 +52,22 @@ echo "$url" |
 	grep -qP '^(?:https\:\/\/)?(?:www\.)?(youtube\.com\/watch\?v=[A-Za-z0-9\-_]{11}|youtu\.be\/[A-Za-z0-9\-_]{11})' ||
 	die "invalid url '$url'"
 
-notify-send -a yt-dlp "⬇️Start downloading '$url'..."
+fetch_title() {
+	curl -s "$(printf 'https://youtube.com/oembed?url=%s&format=json' "$url")" \
+		-H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:106.0) Gecko/20100101 Firefox/106.0' \
+		-H 'Accept-Language: en-US,en;q=0.5' | jq -r .title
+}
+
+if [ "$use_title" -eq 1 ]; then
+	title="$(fetch_title)"
+else
+	title="$url"
+fi
+
+if [ -z "$title" ]; then
+	title="$url"
+fi
+
+notify-send -a yt-dlp "⬇️Start downloading '$title'..."
 qid="$(tsp yt-dlp "$url" -o "$output" -R infinite || notify-send -a yt-dlp "❌Download failed")"
-tsp -D "$qid" notify-send -a yt-dlp "✅Download done: '$url'"
+tsp -D "$qid" notify-send -a yt-dlp "✅Download done: '$title'"
