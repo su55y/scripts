@@ -1,20 +1,22 @@
 #!/bin/sh
 
 die() {
-	[ -n "$1" ] && notify-send -a yt-dlp "$1"
-	exit 1
+    [ -n "$1" ] && notify-send -a yt-dlp "$1"
+    exit 1
 }
 
 DEFAULT_OUTPUT="$HOME/Videos/YouTube/%(uploader)s/%(title)s.%(ext)s"
+HISTORY_DB="${XDG_CACHE_HOME:-$HOME/.cache}/playlist_ctl/playlist_ctl.db"
 
 show_help() {
-	cat <<EOF
+    cat <<EOF
 Usage: $0 [-u url] [-o output] [-h] [-t]
 
 Options:
   -u  url to download, can be optional if url present in clipboard
   -o  output path, optional (default: '$DEFAULT_OUTPUT')
   -t  notify with video title instead of url
+  -H  log history to playlist-ctl compatible database
 EOF
 }
 
@@ -22,23 +24,25 @@ url=""
 output=""
 title=""
 use_title=0
+use_history=0
 
 parse_args() {
-	OPTIND=1
-	while getopts "h?tuo:" opt; do
-		case "$opt" in
-		h | \?)
-			show_help
-			exit 0
-			;;
-		u) url=$OPTARG ;;
-		o) output=$OPTARG ;;
-		t) use_title=1 ;;
-		esac
-	done
+    OPTIND=1
+    while getopts "h?Htuo:" opt; do
+        case "$opt" in
+        h | \?)
+            show_help
+            exit 0
+            ;;
+        u) url=$OPTARG ;;
+        o) output=$OPTARG ;;
+        t) use_title=1 ;;
+        H) use_history=1 ;;
+        esac
+    done
 
-	shift $((OPTIND - 1))
-	[ "${1:-}" = "--" ] && shift
+    shift $((OPTIND - 1))
+    [ "${1:-}" = "--" ] && shift
 }
 
 parse_args "$@"
@@ -49,25 +53,28 @@ parse_args "$@"
 [ -n "$output" ] || output="$DEFAULT_OUTPUT"
 
 echo "$url" |
-	grep -qP '^(?:https\:\/\/)?(?:www\.)?(youtube\.com\/watch\?v=[A-Za-z0-9\-_]{11}|youtu\.be\/[A-Za-z0-9\-_]{11})' ||
-	die "invalid url '$url'"
+    grep -qP '^(?:https\:\/\/)?(?:www\.)?(youtube\.com\/watch\?v=[A-Za-z0-9\-_]{11}|youtu\.be\/[A-Za-z0-9\-_]{11})' ||
+    die "invalid url '$url'"
 
 fetch_title() {
-	curl -s "$(printf 'https://youtube.com/oembed?url=%s&format=json' "$url")" \
-		-H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:106.0) Gecko/20100101 Firefox/106.0' \
-		-H 'Accept-Language: en-US,en;q=0.5' | jq -r .title
+    curl -s "$(printf 'https://youtube.com/oembed?url=%s&format=json' "$url")" \
+        -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:106.0) Gecko/20100101 Firefox/106.0' \
+        -H 'Accept-Language: en-US,en;q=0.5' | jq -r .title
 }
 
 if [ "$use_title" -eq 1 ]; then
-	title="$(fetch_title)"
+    title="$(fetch_title)"
 else
-	title="$url"
+    title="$url"
 fi
 
 if [ -z "$title" ]; then
-	title="$url"
+    title="$url"
 fi
 
 notify-send -a yt-dlp "⬇️Start downloading '$title'..."
 qid="$(tsp yt-dlp "$url" -o "$output" -R infinite || notify-send -a yt-dlp "❌Download failed")"
 tsp -D "$qid" notify-send -a yt-dlp "✅Download done: '$title'"
+if [ "$use_history" -eq 1 ]; then
+    tsp -D "$qid" sqlite3 "$HISTORY_DB" "INSERT OR IGNORE INTO titles (url, title, created) VALUES ('$url', '$title', '$(date -Ins)');"
+fi
