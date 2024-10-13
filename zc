@@ -1,0 +1,46 @@
+#!/bin/sh
+
+# zsh config script
+
+show_help() {
+    cat <<EOF
+Usage: $0 [-e CONFIG_SECTION]
+
+Options:
+  -e  edit given config file ([a]liases | [ab]breviations | [b]indings | [p]rofile | [w]idgets)
+  -h  show this message
+EOF
+}
+
+config_section=""
+
+parse_args() {
+    OPTIND=1
+    while getopts "he:" opt; do
+        case "$opt" in
+        h)
+            show_help
+            exit 0
+            ;;
+        e) config_section=$OPTARG ;;
+        *)
+            show_help
+            exit 1
+            ;;
+        esac
+    done
+
+    shift $((OPTIND - 1))
+    [ "${1:-}" = "--" ] && shift
+}
+
+parse_args "$@"
+
+case $config_section in
+ab) nvim "$ZDOTDIR/abbreviations" ;;
+a) nvim "$ZDOTDIR/aliases" ;;
+b) nvim "$ZDOTDIR/bindings" ;;
+p) nvim "$ZDOTDIR/profile" ;;
+w) nvim "$ZDOTDIR/widgets" ;;
+*) nvim "$ZDOTDIR/.zshrc" ;;
+esac
