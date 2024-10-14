@@ -1,7 +1,9 @@
 #!/bin/sh
 
+YTDL_KEY_ICON="youtube"
+
 die() {
-    [ -n "$1" ] && notify-send -a yt-dlp "$1"
+    [ -n "$1" ] && notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "$1"
     exit 1
 }
 
@@ -72,9 +74,9 @@ if [ -z "$title" ]; then
     title="$url"
 fi
 
-notify-send -a yt-dlp "⬇️Start downloading '$title'..."
-qid="$(tsp yt-dlp "$url" -o "$output" -R infinite || notify-send -a yt-dlp "❌Download failed")"
-tsp -D "$qid" notify-send -a yt-dlp "✅Download done: '$title'"
+notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "⬇️Start downloading '$title'..."
+qid="$(tsp yt-dlp "$url" -o "$output" -R infinite || notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "❌Download failed")"
+tsp -D "$qid" notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "✅Download done: '$title'"
 if [ "$use_history" -eq 1 ]; then
     tsp -D "$qid" sqlite3 "$HISTORY_DB" "INSERT OR IGNORE INTO titles (url, title, created) VALUES ('$url', '$title', '$(date -Ins)');"
 fi
