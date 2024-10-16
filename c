@@ -8,6 +8,10 @@ fi
 
 choosed_dir="$(find "$CONFIG_DIR" -maxdepth 1 -type d -printf '%f\n' | fzf)"
 
+if [ -z "$choosed_dir" ]; then
+    exit 0
+fi
+
 if [ ! -d "$CONFIG_DIR/$choosed_dir" ]; then
     echo "choosed dir '$choosed_dir' not found"
     exit 1
