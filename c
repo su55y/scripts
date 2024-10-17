@@ -6,7 +6,7 @@ if [ ! -d "$CONFIG_DIR" ]; then
     exit 1
 fi
 
-choosed_dir="$(find "$CONFIG_DIR" -maxdepth 1 -type d -printf '%f\n' | fzf)"
+choosed_dir="$(find "$CONFIG_DIR" -maxdepth 1 -type d -printf '%f\n' | grep -P '^[^\.].+$' | fzf)"
 
 if [ -z "$choosed_dir" ]; then
     exit 0
