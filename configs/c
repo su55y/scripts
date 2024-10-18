@@ -1,5 +1,11 @@
 #!/bin/sh
 
+config_editor="${CONFIG_EDITOR:-$EDITOR}"
+if [ -z "$config_editor" ]; then
+    echo "CONFIG_EDITOR and EDITOR variables are not set"
+    exit 1
+fi
+
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
 if [ ! -d "$CONFIG_DIR" ]; then
     echo "config dir '$CONFIG_DIR' not found"
@@ -17,4 +23,4 @@ if [ ! -d "$CONFIG_DIR/$choosed_dir" ]; then
     exit 1
 fi
 
-nvim "$CONFIG_DIR/$choosed_dir"
+"$config_editor" "$CONFIG_DIR/$choosed_dir"
