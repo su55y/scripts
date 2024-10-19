@@ -1,7 +1,5 @@
 #!/bin/sh
 
-# zsh config script
-
 show_help() {
     cat <<EOF
 Usage: $0 [-e CONFIG_SECTION]
@@ -36,11 +34,14 @@ parse_args() {
 
 parse_args "$@"
 
+file_to_edit="$ZDOTDIR/.zshrc"
+
 case $config_section in
-ab) nvim "$ZDOTDIR/abbreviations" ;;
-a) nvim "$ZDOTDIR/aliases" ;;
-b) nvim "$ZDOTDIR/bindings" ;;
-p) nvim "$ZDOTDIR/profile" ;;
-w) nvim "$ZDOTDIR/widgets" ;;
-*) nvim "$ZDOTDIR/.zshrc" ;;
+ab) file_to_edit="$ZDOTDIR/abbreviations" ;;
+a) file_to_edit="$ZDOTDIR/aliases" ;;
+b) file_to_edit="$ZDOTDIR/bindings" ;;
+p) file_to_edit="$ZDOTDIR/profile" ;;
+w) file_to_edit="$ZDOTDIR/widgets" ;;
 esac
+
+nvim "$file_to_edit"
