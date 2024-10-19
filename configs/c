@@ -12,7 +12,11 @@ if [ ! -d "$CONFIG_DIR" ]; then
     exit 1
 fi
 
-choosed_dir="$(find "$CONFIG_DIR" -maxdepth 1 -type d -printf '%f\n' | grep -P '^[^\.].+$' | fzf)"
+C_FZF_CMD_="fzf --preview="
+if [ -n "$C_FZF_CMD" ]; then
+    C_FZF_CMD_="$C_FZF_CMD"
+fi
+choosed_dir="$(find "$CONFIG_DIR" -maxdepth 1 -type d -printf '%f\n' | grep -P '^[^\.].+$' | ${C_FZF_CMD_})"
 
 if [ -z "$choosed_dir" ]; then
     exit 0
