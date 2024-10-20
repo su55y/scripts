@@ -34,6 +34,12 @@ parse_args() {
 
 parse_args "$@"
 
+config_editor="${CONFIG_EDITOR:-$EDITOR}"
+if [ -z "$config_editor" ]; then
+    echo "CONFIG_EDITOR and EDITOR variables are not set"
+    exit 1
+fi
+
 file_to_edit="$ZDOTDIR/.zshrc"
 
 case $config_section in
@@ -44,4 +50,4 @@ p) file_to_edit="$ZDOTDIR/profile" ;;
 w) file_to_edit="$ZDOTDIR/widgets" ;;
 esac
 
-nvim "$file_to_edit"
+"$config_editor" "$file_to_edit"
