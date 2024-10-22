@@ -4,5 +4,5 @@ CLEANER="${XDG_DATA_HOME:-$HOME/.local/share}/newsboat/cleaner" # cleaner binary
 
 total=$("$CLEANER")
 if [ $total -gt 0 ]; then
-	notify-send -a "newsboat" "$total last entries was deleted"
+    notify-send -i newsboat -a newsboat "$total last entries was deleted"
 fi

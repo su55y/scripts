@@ -4,7 +4,9 @@ from pathlib import Path
 import os
 import subprocess as sp
 
-notify = lambda msg: sp.run(["notify-send", "-a", "newsboat updates", msg])
+notify = lambda msg: sp.run(
+    ["notify-send", "-i", "newsboat", "-a", "newsboat updates", msg]
+)
 
 DATA_HOME = Path(os.environ.get("XDG_DATA_HOME", Path.home().joinpath(".local/share")))
 if not DATA_HOME.exists():
