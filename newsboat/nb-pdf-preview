@@ -1,8 +1,8 @@
 #!/bin/sh
 
 err_msg() {
-	notify-send -a "$(basename "$0")" "$1"
-	exit 1
+    notify-send -i newsboat -a "$(basename "$0")" "$1"
+    exit 1
 }
 
 [ -n "$1" ] || err_msg "no input url"
@@ -13,8 +13,8 @@ clean_article="/tmp/clean_${base_file}.html"
 pdf_article="/tmp/${base_file}.pdf"
 
 cleanup() {
-	[ -f "$article" ] && rm "$article"
-	[ -f "$clean_article" ] && rm "$clean_article"
+    [ -f "$article" ] && rm "$article"
+    [ -f "$clean_article" ] && rm "$clean_article"
 }
 trap cleanup EXIT
 
