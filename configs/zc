@@ -50,4 +50,9 @@ p) file_to_edit="$ZDOTDIR/profile" ;;
 w) file_to_edit="$ZDOTDIR/widgets" ;;
 esac
 
+if [ ! -f "$file_to_edit" ]; then
+    echo "'$file_to_edit' not found"
+    exit 1
+fi
+
 "$config_editor" "$file_to_edit"
