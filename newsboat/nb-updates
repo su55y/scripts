@@ -8,11 +8,12 @@ notify = lambda msg: sp.run(
     ["notify-send", "-i", "newsboat", "-a", "newsboat updates", msg]
 )
 
-DATA_HOME = Path(os.environ.get("XDG_DATA_HOME", Path.home().joinpath(".local/share")))
+DATA_HOME = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
 if not DATA_HOME.exists():
     notify("%s not found" % DATA_HOME)
     exit(1)
-DB_PATH = DATA_HOME.joinpath("newsboat/cache.db")
+
+DB_PATH = DATA_HOME / "newsboat/cache.db"
 if not DB_PATH.exists():
     notify("%s not found" % DB_PATH)
     exit(1)
