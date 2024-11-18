@@ -8,7 +8,7 @@ import subprocess as sp
 
 FFMPEG_CMD = "ffmpeg %(silence)s -i %(input)s %(filter)s %(output)s"
 SILENCE_OPTS = "-hide_banner -loglevel warning -stats"
-PROBE_CMD = "ffprobe -v quiet -show_streams -of json %s"
+PROBE_CMD = "ffprobe -v quiet -show_streams -of json '%s'"
 
 SET_PTS = "setpts=PTS/%.3f"
 ATEMPO = "atempo=%.3f"
@@ -26,7 +26,17 @@ class MediaType(Enum):
 # TODO: adjust aratio to more then 2.0 by concating
 
 
-def get_filter(file: str, ratio: float) -> str:
+def ffmpeg_cmd(input: str, output: str, filter: list[str], verbose: bool) -> list[str]:
+    cmd = ["ffmpeg"]
+    if verbose:
+        cmd.extend(SILENCE_OPTS.split())
+    cmd.extend(["-i", input])
+    cmd.extend(filter)
+    cmd.append(output)
+    return cmd
+
+
+def get_filter(file: str, ratio: float) -> list[str]:
     try:
         probe = json.loads(sp.getoutput(PROBE_CMD % file))
         if not (streams := probe.get("streams")):
@@ -53,15 +63,17 @@ def get_filter(file: str, ratio: float) -> str:
     if filter_type is None:
         exit("can't find video or audio stream")
 
+    filter_str = ""
     match filter_type:
         case MediaType.VideoOnly:
-            return FILTER_V % (SET_PTS % ratio)
+            filter_str = FILTER_V % (SET_PTS % ratio)
         case MediaType.AudioOnly:
-            return FILTER_A % (ATEMPO % ratio)
+            filter_str = FILTER_A % (ATEMPO % ratio)
         case MediaType.VideoAudio:
-            return COMPLEX_FILTER % (SET_PTS % ratio, ATEMPO % ratio)
-
-    exit("can't choose filter")
+            filter_str = COMPLEX_FILTER % (SET_PTS % ratio, ATEMPO % ratio)
+        case _:
+            raise Exception(f"Unhandled MediaType {filter_type!r}")
+    return filter_str.split()
 
 
 def parse_args() -> argparse.Namespace:
@@ -95,12 +107,18 @@ def parse_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = parse_args()
-    cmd = FFMPEG_CMD % {
-        "silence": "" if args.verbose else SILENCE_OPTS,
-        "input": args.input,
-        "filter": get_filter(args.input, args.ratio),
-        "output": args.output,
-    }
+    # cmd = FFMPEG_CMD % {
+    #     "silence": "" if args.verbose else SILENCE_OPTS,
+    #     "input": args.input,
+    #     "filter": get_filter(args.input, args.ratio),
+    #     "output": args.output,
+    # }
+    cmd = ffmpeg_cmd(
+        input=args.input,
+        output=args.output,
+        filter=get_filter(args.input, args.ratio),
+        verbose=args.verbose,
+    )
     if args.verbose:
         print("%s" % cmd)
-    sp.run(cmd.split())
+    sp.run(cmd)
