@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 import subprocess as sp
 
-FFMPEG_CMD = "ffmpeg %(silence)s -i %(input)s %(filter)s %(output)s"
 SILENCE_OPTS = "-hide_banner -loglevel warning -stats"
 PROBE_CMD = "ffprobe -v quiet -show_streams -of json '%s'"
 
@@ -107,12 +106,6 @@ def parse_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = parse_args()
-    # cmd = FFMPEG_CMD % {
-    #     "silence": "" if args.verbose else SILENCE_OPTS,
-    #     "input": args.input,
-    #     "filter": get_filter(args.input, args.ratio),
-    #     "output": args.output,
-    # }
     cmd = ffmpeg_cmd(
         input=args.input,
         output=args.output,
