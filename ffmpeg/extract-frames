@@ -14,10 +14,29 @@ FFMPEG = "ffmpeg"
 FFPROBE = "ffprobe"
 MONTAGE = "montage"
 
+
+def extract_cmd(
+    input: Path, output: Path, interval: float, count_: int, verbosity: str
+) -> list[str]:
+    return [
+        FFMPEG,
+        *verbosity.split(),
+        "-i",
+        str(input),
+        "-vf",
+        "thumbnail=%s,setpts=N/TB" % interval,
+        "-r",
+        "1",
+        "-vframes",
+        "%d" % count_,
+        str(output),
+    ]
+
+
 EXTRACT_CMD = f"{FFMPEG} %s -i %s -vf thumbnail=%s,setpts=N/TB -r 1 -vframes %d %s"
 EXTRACT_ALL_CMD = f"{FFMPEG} %s -i %s -vframes %d %s"
 SILENCE_OPTS = "-hide_banner -loglevel warning -stats"
-PROBE_CMD = f"{FFPROBE} -v quiet -show_streams -select_streams v:0 -of json %s"
+PROBE_CMD = f"{FFPROBE} -v quiet -show_streams -select_streams v:0 -of json '%s'"
 MONTAGE_CMD = f"{MONTAGE} -geometry +0+0 -tile %s %s %s"
 
 DEFAULT_COUNT = 10
@@ -216,11 +235,20 @@ if __name__ == "__main__":
     interval = probe.calc_interval(args.count)
     verbosity = "" if args.verbose else SILENCE_OPTS
     if interval >= 2:
-        cmd = EXTRACT_CMD % (verbosity, args.file, interval, args.count, args.format)
+        # cmd = EXTRACT_CMD % (verbosity, args.file, interval, args.count, args.format)
+        cmd = extract_cmd(
+            args.file,
+            args.format,
+            interval,
+            args.count,
+            verbosity,
+        )
     else:
-        cmd = EXTRACT_ALL_CMD % (verbosity, args.file, args.count, args.format)
+        cmd = (
+            EXTRACT_ALL_CMD % (verbosity, args.file, args.count, args.format)
+        ).split()
     print(cmd)
-    if sp.run(cmd.split()).returncode == 0 and args.preview:
+    if sp.run(cmd).returncode == 0 and args.preview:
         if not check_executable(MONTAGE):
             exit(f"{MONTAGE} executable is not available")
         generate_preview(args, probe)
