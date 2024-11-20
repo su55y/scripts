@@ -15,9 +15,19 @@ FFPROBE = "ffprobe"
 MONTAGE = "montage"
 
 
-def extract_cmd(
+def build_cmd(
     input: Path, output: Path, interval: float, count_: int, verbosity: str
 ) -> list[str]:
+    if interval < 2:
+        return [
+            FFMPEG,
+            verbosity,
+            "-i",
+            str(input),
+            "-vframes",
+            "%d" % count_,
+            str(output),
+        ]
     return [
         FFMPEG,
         *verbosity.split(),
@@ -234,19 +244,13 @@ if __name__ == "__main__":
     probe = get_probe(args.file)
     interval = probe.calc_interval(args.count)
     verbosity = "" if args.verbose else SILENCE_OPTS
-    if interval >= 2:
-        # cmd = EXTRACT_CMD % (verbosity, args.file, interval, args.count, args.format)
-        cmd = extract_cmd(
-            args.file,
-            args.format,
-            interval,
-            args.count,
-            verbosity,
-        )
-    else:
-        cmd = (
-            EXTRACT_ALL_CMD % (verbosity, args.file, args.count, args.format)
-        ).split()
+    cmd = build_cmd(
+        args.file,
+        args.format,
+        interval,
+        args.count,
+        verbosity,
+    )
     print(cmd)
     if sp.run(cmd).returncode == 0 and args.preview:
         if not check_executable(MONTAGE):
