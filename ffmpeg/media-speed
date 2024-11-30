@@ -27,7 +27,7 @@ class MediaType(Enum):
 
 def ffmpeg_cmd(input: str, output: str, filter: list[str], verbose: bool) -> list[str]:
     cmd = ["ffmpeg"]
-    if verbose:
+    if not verbose:
         cmd.extend(SILENCE_OPTS.split())
     cmd.extend(["-i", input])
     cmd.extend(filter)
