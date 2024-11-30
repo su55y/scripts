@@ -86,13 +86,14 @@ def parse_args() -> argparse.Namespace:
             return r
 
     def check_input(v: str) -> str:
-        if not Path(v).exists():
+        p = Path(v).expanduser()
+        if not p.exists():
             raise argparse.ArgumentTypeError("%s not exists" % v)
-        return v
+        return str(p)
 
     parser = argparse.ArgumentParser()
     parser.add_argument("input", type=check_input, help="input file")
-    parser.add_argument("-o", "--output", required=True, help="output file")
+    parser.add_argument("-o", "--output", type=Path, required=True, help="output file")
     parser.add_argument(
         "-r",
         "--ratio",
@@ -108,7 +109,7 @@ if __name__ == "__main__":
     args = parse_args()
     cmd = ffmpeg_cmd(
         input=args.input,
-        output=args.output,
+        output=args.output.expanduser(),
         filter=get_filter(args.input, args.ratio),
         verbose=args.verbose,
     )
