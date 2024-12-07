@@ -30,9 +30,9 @@ use_history=0
 
 parse_args() {
     OPTIND=1
-    while getopts "h?Htuo:" opt; do
+    while getopts "u:o:Hht" opt; do
         case "$opt" in
-        h | \?)
+        h)
             show_help
             exit 0
             ;;
@@ -40,6 +40,7 @@ parse_args() {
         o) output=$OPTARG ;;
         t) use_title=1 ;;
         H) use_history=1 ;;
+        *) exit 1 ;;
         esac
     done
 
