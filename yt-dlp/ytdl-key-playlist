@@ -27,15 +27,16 @@ use_title=0
 
 parse_args() {
 	OPTIND=1
-	while getopts "h?tuo:" opt; do
+	while getopts "u:o:ht" opt; do
 		case "$opt" in
-		h | \?)
+		h)
 			show_help
 			exit 0
 			;;
 		u) url=$OPTARG ;;
 		o) output=$OPTARG ;;
 		t) use_title=1 ;;
+        *) exit 1 ;;
 		esac
 	done
 
