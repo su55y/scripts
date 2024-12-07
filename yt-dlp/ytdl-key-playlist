@@ -3,14 +3,14 @@
 YTDL_KEY_P_ICON="youtube"
 
 die() {
-	[ -n "$1" ] && notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "$1"
-	exit 1
+    [ -n "$1" ] && notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "$1"
+    exit 1
 }
 
 DEFAULT_OUTPUT="$HOME/Videos/YouTube/%(uploader)s/%(playlist_title)s/%(playlist_index)d %(title)s.%(ext)s"
 
 show_help() {
-	cat <<EOF
+    cat <<EOF
 Usage: $0 [-u url] [-o output] [-h] [-t]
 
 Options:
@@ -28,23 +28,23 @@ use_title=0
 format=""
 
 parse_args() {
-	OPTIND=1
-	while getopts "f:u:o:ht" opt; do
-		case "$opt" in
-		h)
-			show_help
-			exit 0
-			;;
-		u) url=$OPTARG ;;
-		o) output=$OPTARG ;;
+    OPTIND=1
+    while getopts "f:u:o:ht" opt; do
+        case "$opt" in
+        h)
+            show_help
+            exit 0
+            ;;
+        u) url=$OPTARG ;;
+        o) output=$OPTARG ;;
         f) format=$OPTARG ;;
-		t) use_title=1 ;;
+        t) use_title=1 ;;
         *) exit 1 ;;
-		esac
-	done
+        esac
+    done
 
-	shift $((OPTIND - 1))
-	[ "${1:-}" = "--" ] && shift
+    shift $((OPTIND - 1))
+    [ "${1:-}" = "--" ] && shift
 }
 
 parse_args "$@"
@@ -58,23 +58,23 @@ format_str=""
 [ -n "$format" ] && format_str="-f $format"
 
 echo "$url" |
-	grep -qP '^(?:https\:\/\/)?(?:www\.)?(youtube\.com\/playlist\?list=[A-Za-z0-9\-_]{18,34})' ||
-	die "invalid url '$url'"
+    grep -qP '^(?:https\:\/\/)?(?:www\.)?(youtube\.com\/playlist\?list=[A-Za-z0-9\-_]{18,34})' ||
+    die "invalid url '$url'"
 
 fetch_title() {
-	curl -s "$(printf 'https://youtube.com/oembed?url=%s&format=json' "$url")" \
-		-H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:106.0) Gecko/20100101 Firefox/106.0' \
-		-H 'Accept-Language: en-US,en;q=0.5' | jq -r .title
+    curl -s "$(printf 'https://youtube.com/oembed?url=%s&format=json' "$url")" \
+        -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:106.0) Gecko/20100101 Firefox/106.0' \
+        -H 'Accept-Language: en-US,en;q=0.5' | jq -r .title
 }
 
 if [ "$use_title" -eq 1 ]; then
-	title="$(fetch_title)"
+    title="$(fetch_title)"
 else
-	title="$url"
+    title="$url"
 fi
 
 if [ -z "$title" ]; then
-	title="$url"
+    title="$url"
 fi
 
 notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "⬇️Start downloading '$title'..."
