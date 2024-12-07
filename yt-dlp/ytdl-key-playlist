@@ -51,7 +51,7 @@ parse_args "$@"
 [ -n "$output" ] || output="$DEFAULT_OUTPUT"
 
 echo "$url" |
-	grep -qP '^(?:https\:\/\/)?(?:www\.)?(youtube\.com\/playlist\?list=[A-Za-z0-9\-_]{34})' ||
+	grep -qP '^(?:https\:\/\/)?(?:www\.)?(youtube\.com\/playlist\?list=[A-Za-z0-9\-_]{18,34})' ||
 	die "invalid url '$url'"
 
 fetch_title() {
