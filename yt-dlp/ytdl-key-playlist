@@ -18,6 +18,7 @@ Options:
   -u  playlist url, can be optional if url present in clipboard
   -o  output path, optional (default: '$DEFAULT_OUTPUT')
   -t  notify with playlist title instead of url
+  -n  run now instead of task spooling
 EOF
 }
 
@@ -25,11 +26,12 @@ url=""
 output=""
 title=""
 use_title=0
+is_now=0
 format=""
 
 parse_args() {
     OPTIND=1
-    while getopts "f:u:o:ht" opt; do
+    while getopts "f:u:o:htn" opt; do
         case "$opt" in
         h)
             show_help
@@ -39,6 +41,7 @@ parse_args() {
         o) output=$OPTARG ;;
         f) format=$OPTARG ;;
         t) use_title=1 ;;
+        n) is_now=1 ;;
         *) exit 1 ;;
         esac
     done
@@ -78,5 +81,13 @@ if [ -z "$title" ]; then
 fi
 
 notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "⬇️Start downloading '$title'..."
-qid="$(tsp yt-dlp "$format_str" "$url" -o "$output" -R infinite || notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "❌Download failed")"
-tsp -D "$qid" notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "✅Download done: '$title'"
+if [ "$is_now" -eq 1 ]; then
+    yt-dlp "$format_str $url" -o "$output" -R infinite || {
+        notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "❌Download failed"
+        exit 1
+    }
+    notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "✅Download done: '$title'"
+else
+    qid="$(tsp yt-dlp "$format_str $url" -o "$output" -R infinite || notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "❌Download failed")"
+    tsp -D "$qid" notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "✅Download done: '$title'"
+fi
