@@ -82,12 +82,23 @@ fi
 
 notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "⬇️Start downloading '$title'..."
 if [ "$is_now" -eq 1 ]; then
-    yt-dlp "$format_str $url" -o "$output" -R infinite || {
-        notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "❌Download failed"
-        exit 1
-    }
+    if [ -n "$format_str" ]; then
+        yt-dlp "$format_str" "$url" -o "$output" -R infinite || {
+            notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "❌Download failed"
+            exit 1
+        }
+    else
+        yt-dlp "$url" -o "$output" -R infinite || {
+            notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "❌Download failed"
+            exit 1
+        }
+    fi
     notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "✅Download done: '$title'"
 else
-    qid="$(tsp yt-dlp "$format_str $url" -o "$output" -R infinite || notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "❌Download failed")"
+    if [ -n "$format_str" ]; then
+        qid="$(tsp yt-dlp "$format_str" "$url" -o "$output" -R infinite || notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "❌Download failed")"
+    else
+        qid="$(tsp yt-dlp "$url" -o "$output" -R infinite || notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "❌Download failed")"
+    fi
     tsp -D "$qid" notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "✅Download done: '$title'"
 fi
