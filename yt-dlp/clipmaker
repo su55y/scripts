@@ -153,8 +153,8 @@ def get_url(url: str, choose: bool, format: str) -> tuple[str, str]:
             while True:
                 format = input("formats pair string: ")
                 v, a = format.split("+")
-                if not check_formats(v, a):
-                    continue
+                if check_formats(v, a):
+                    break
         else:
             v, a = format.split("+")
             if not check_formats(v, a):
