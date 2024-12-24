@@ -1,15 +1,27 @@
 #!/bin/sh
 
-[ -n "$1" ] || {
-	cat <<EOF
-dlpodcast usage: dlpodcast [URL] [OUTPUT] [RATIO]
+print_help() {
+    cat <<EOF
+usage: $0 [URL] [OUTPUT] [RATIO]
 positional args:
   \$1 - URL    (required) 
   \$2 - OUTPUT (default: '%(title)s')
   \$3 - RATIO  (default: 1.35)
 EOF
-	exit 0
 }
+
+if [ -z "$1" ]; then
+    print_help
+    exit 0
+fi
+
+case $1 in
+-h)
+    print_help
+    exit 0
+    ;;
+esac
+
 output="$2"
 [ -n "$output" ] || output="%(title)s"
 ratio="$3"
