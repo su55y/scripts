@@ -11,12 +11,12 @@ DEFAULT_OUTPUT="$HOME/Videos/YouTube/%(uploader)s/%(playlist_title)s/%(playlist_
 
 show_help() {
     cat <<EOF
-Usage: $0 [-u url] [-o output] [-h] [-t]
+Usage: $0 [-u url] [-o output] [-O options] [-h] [-t] [-n]
 
 Options:
-  -f  format, optional
   -u  playlist url, can be optional if url present in clipboard
   -o  output path, optional (default: '$DEFAULT_OUTPUT')
+  -O  yt-dlp options
   -t  notify with playlist title instead of url
   -n  run now instead of task spooling
 EOF
@@ -27,11 +27,11 @@ output=""
 title=""
 use_title=0
 is_now=0
-format=""
+ytdl_opts=""
 
 parse_args() {
     OPTIND=1
-    while getopts "f:u:o:htn" opt; do
+    while getopts "O:u:o:htn" opt; do
         case "$opt" in
         h)
             show_help
@@ -39,7 +39,7 @@ parse_args() {
             ;;
         u) url=$OPTARG ;;
         o) output=$OPTARG ;;
-        f) format=$OPTARG ;;
+        O) ytdl_opts=$OPTARG ;;
         t) use_title=1 ;;
         n) is_now=1 ;;
         *) exit 1 ;;
@@ -57,9 +57,6 @@ parse_args "$@"
 
 [ -n "$output" ] || output="$DEFAULT_OUTPUT"
 
-format_str=""
-[ -n "$format" ] && format_str="-f $format"
-
 echo "$url" |
     grep -qP '^(?:https\:\/\/)?(?:www\.)?(youtube\.com\/playlist\?list=[A-Za-z0-9\-_]{18,34})' ||
     die "invalid url '$url'"
@@ -67,38 +64,21 @@ echo "$url" |
 fetch_title() {
     curl -s "$(printf 'https://youtube.com/oembed?url=%s&format=json' "$url")" \
         -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:106.0) Gecko/20100101 Firefox/106.0' \
-        -H 'Accept-Language: en-US,en;q=0.5' | jq -r .title
+        -H 'Accept-Language: en-US,en;q=0.5' |
+        jq -r '"\(.author_name) - \(.title)"'
 }
 
 if [ "$use_title" -eq 1 ]; then
     title="$(fetch_title)"
-else
-    title="$url"
 fi
 
-if [ -z "$title" ]; then
-    title="$url"
-fi
+[ -n "$title" ] || title="$url"
 
 notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "⬇️Start downloading '$title'..."
 if [ "$is_now" -eq 1 ]; then
-    if [ -n "$format_str" ]; then
-        yt-dlp "$format_str" "$url" -o "$output" -R infinite || {
-            notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "❌Download failed"
-            exit 1
-        }
-    else
-        yt-dlp "$url" -o "$output" -R infinite || {
-            notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "❌Download failed"
-            exit 1
-        }
-    fi
+    yt-dlp "$url" -o "$output" $ytdl_opts || die "❌Download failed: '$title'"
     notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "✅Download done: '$title'"
 else
-    if [ -n "$format_str" ]; then
-        qid="$(tsp yt-dlp "$format_str" "$url" -o "$output" -R infinite || notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "❌Download failed")"
-    else
-        qid="$(tsp yt-dlp "$url" -o "$output" -R infinite || notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "❌Download failed")"
-    fi
+    qid="$(tsp yt-dlp "$url" -o "$output" $ytdl_opts || notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "❌Download failed")"
     tsp -D "$qid" notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "✅Download done: '$title'"
 fi
