@@ -12,11 +12,12 @@ HISTORY_DB="${XDG_CACHE_HOME:-$HOME/.cache}/playlist_ctl/playlist_ctl.db"
 
 show_help() {
     cat <<EOF
-Usage: $0 [-u url] [-o output] [-h] [-t]
+Usage: $(basename "$0") [-u url] [-o output] [-O options] [-h] [-t] [-H]
 
 Options:
   -u  url to download, can be optional if url present in clipboard
   -o  output path, optional (default: '$DEFAULT_OUTPUT')
+  -O  yt-dlp options
   -t  notify with video title instead of url
   -H  log history to playlist-ctl compatible database
 EOF
@@ -27,10 +28,11 @@ output=""
 title=""
 use_title=0
 use_history=0
+ytdl_opts=""
 
 parse_args() {
     OPTIND=1
-    while getopts "u:o:Hht" opt; do
+    while getopts "u:o:O:Hht" opt; do
         case "$opt" in
         h)
             show_help
@@ -40,6 +42,7 @@ parse_args() {
         o) output=$OPTARG ;;
         t) use_title=1 ;;
         H) use_history=1 ;;
+        O) ytdl_opts=$OPTARG ;;
         *) exit 1 ;;
         esac
     done
@@ -67,17 +70,16 @@ fetch_title() {
 
 if [ "$use_title" -eq 1 ]; then
     title="$(fetch_title)"
-else
-    title="$url"
 fi
 
-if [ -z "$title" ]; then
-    title="$url"
-fi
+[ -n "$title" ] || title="$url"
 
 notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "⬇️Start downloading '$title'..."
-qid="$(tsp yt-dlp "$url" -o "$output" -R infinite || notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "❌Download failed")"
+qid="$(tsp yt-dlp "$url" -o "$output" $ytdl_opts ||
+    notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "❌Download failed")"
 tsp -D "$qid" notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "✅Download done: '$title'"
 if [ "$use_history" -eq 1 ]; then
-    tsp -D "$qid" sqlite3 "$HISTORY_DB" "INSERT OR IGNORE INTO titles (url, title, created) VALUES ('$url', '$title', '$(date -Ins)');"
+    sqlite3 "$HISTORY_DB" \
+        "INSERT OR IGNORE INTO titles (url, title, created) \
+        VALUES ('$url', '$title', '$(date -Ins)');"
 fi
