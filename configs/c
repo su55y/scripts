@@ -13,18 +13,22 @@ if [ ! -d "$CONFIG_DIR" ]; then
 fi
 
 C_FZF_CMD_="fzf --preview="
-if [ -n "$C_FZF_CMD" ]; then
-    C_FZF_CMD_="$C_FZF_CMD"
-fi
-choosed_dir="$(find "$CONFIG_DIR" -maxdepth 1 -type d -printf '%f\n' | grep -P '^[^\.].+$' | ${C_FZF_CMD_})"
+[ -n "$C_FZF_CMD" ] && C_FZF_CMD_="$C_FZF_CMD"
 
-if [ -z "$choosed_dir" ]; then
-    exit 0
-fi
-
-if [ ! -d "$CONFIG_DIR/$choosed_dir" ]; then
-    echo "choosed dir '$choosed_dir' not found"
-    exit 1
+inp=
+if [ -n "$1" ]; then
+    inp="$1"
+elif [ ! -t 0 ]; then
+    while read -r line; do
+        inp="${inp}$line"
+    done
 fi
 
-"$config_editor" "$CONFIG_DIR/$choosed_dir"
+[ -n "$inp" ] && C_FZF_CMD_="$(printf "%s -q '%s'" "$C_FZF_CMD_" "$inp")"
+
+choice="$(find -L "$CONFIG_DIR" -maxdepth 1 -printf '%f\n' |
+    grep -P '^[^\.].+$' | eval "$C_FZF_CMD_")"
+
+[ -n "$choice" ] || exit 0
+
+"$config_editor" "$CONFIG_DIR/$choice"
