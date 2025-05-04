@@ -14,11 +14,13 @@ import (
 var (
 	dbFilePath string
 	limit      int
+	useDeleted bool
 )
 
 const (
 	selectQuery = "SELECT feedurl FROM rss_item GROUP BY feedurl"
-	deleteQuery = "DELETE FROM rss_item WHERE feedurl=? AND unread = 0 AND id NOT IN (SELECT id FROM rss_item WHERE feedurl=? ORDER BY pubDate DESC LIMIT ?)"
+	deleteQuery = "DELETE FROM rss_item WHERE feedurl=? AND unread = 0 AND id NOT IN (SELECT id FROM rss_item WHERE feedurl=? AND unread = 0 ORDER BY pubDate DESC LIMIT ?)"
+	updateQuery = "UPDATE rss_item SET deleted = 1 WHERE feedurl=? AND unread = 0 AND deleted = 0 AND id NOT IN (SELECT id FROM rss_item WHERE feedurl=? AND deleted = 0 AND unread = 0 ORDER BY pubDate DESC LIMIT ?)"
 )
 
 func selectTables() []string {
@@ -49,7 +51,7 @@ func selectTables() []string {
 	return tables
 }
 
-func cleanDb(tables []string) int {
+func cleanDb(tables []string, query string) int {
 	db, err := sql.Open("sqlite3", dbFilePath)
 	if err != nil {
 		log.Fatal(err)
@@ -58,7 +60,7 @@ func cleanDb(tables []string) int {
 
 	var count int
 	for _, t := range tables {
-		r, err := db.Exec(deleteQuery, t, t, limit)
+		r, err := db.Exec(query, t, t, limit)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -81,27 +83,22 @@ func defaultDbPath() string {
 		xdgDataHome = filepath.Join(home, ".local", "share")
 	}
 
-	newsboatDataHome := filepath.Join(xdgDataHome, "newsboat")
-	if stat, err := os.Stat(newsboatDataHome); err != nil {
-		log.Fatal(err)
-	} else if !stat.IsDir() {
-		log.Fatalf("%s is not dir", newsboatDataHome)
-	}
-	dbPath := filepath.Join(newsboatDataHome, "cache.db")
-	if _, err := os.Stat(dbPath); err != nil {
-		log.Fatal(err)
-	}
-	return dbPath
+	return filepath.Join(xdgDataHome, "newsboat", "cache.db")
 }
 
 func main() {
 	flag.StringVar(&dbFilePath, "d", defaultDbPath(), "db filepath")
 	flag.IntVar(&limit, "l", 100, "entries count to leave after deletion for each feed")
+	flag.BoolVar(&useDeleted, "D", false, "update `deleted = 1` instead of delete")
 	flag.Parse()
 
 	if _, err := os.Stat(dbFilePath); err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Print(cleanDb(selectTables()))
+	query := deleteQuery
+	if useDeleted {
+		query = updateQuery
+	}
+	fmt.Print(cleanDb(selectTables(), query))
 }
