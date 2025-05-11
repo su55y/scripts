@@ -13,24 +13,25 @@ COUNT_TO_LEAVE=15
 
 [ -f "$DB_FILE" ] || err_msg "Database file '$DB_FILE' not exists"
 
-if [ -z "$(sqlite3 -column "$DB_FILE" "select feedurl from rss_item where  feedurl = '$FEED_URL';")" ]; then
+if [ -z "$(sqlite3 -column "$DB_FILE" "SELECT feedurl FROM rss_item WHERE feedurl = '$FEED_URL';")" ]; then
     err_msg "No such feed url in db: '$FEED_URL'"
 fi
 
-printf "remove all except last (default: %d): " "$COUNT_TO_LEAVE"
+trap 'exit 0' INT
+printf "Mark as deleted all except last (default: %d): " "$COUNT_TO_LEAVE"
 read -r answ_count
 if [ -n "$answ_count" ]; then
-    echo "$answ_count" | grep -qP '^(0|[1-9]\d+)$' || err_msg "invalid count '$answ_count'"
+    echo "$answ_count" | grep -qP '^(0|[1-9]\d*)$' || err_msg "invalid count '$answ_count'"
     COUNT_TO_LEAVE=$((answ_count))
 fi
 
-count=$(($(sqlite3 -column "$DB_FILE" "select count(*) from rss_item where feedurl = '$FEED_URL';")))
+count=$(($(sqlite3 -column "$DB_FILE" "SELECT COUNT(*) FROM rss_item WHERE feedurl = '$FEED_URL';")))
 if [ $count -gt $COUNT_TO_LEAVE ]; then
-    echo "count ($count) is greater than $COUNT_TO_LEAVE!"
-    query="delete from rss_item where feedurl = '$FEED_URL' and id not in (select id from rss_item where feedurl = '$FEED_URL' order by pubDate desc limit $COUNT_TO_LEAVE);"
+    query="UPDATE rss_item SET deleted = 1 WHERE feedurl = '$FEED_URL' AND id NOT IN \
+        (SELECT id FROM rss_item WHERE feedurl = '$FEED_URL' ORDER BY pubDate DESC LIMIT $COUNT_TO_LEAVE);"
     printf '%s\n\nexecute it? [y/n]: ' "$query"
     read -r answ_exec
     case $answ_exec in
-    y* | Y*) sqlite3 "$DB_FILE" "$query" ;;
+    [yY]*) sqlite3 "$DB_FILE" "$query" ;;
     esac
 fi
