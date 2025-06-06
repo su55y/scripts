@@ -10,21 +10,20 @@ positional args:
 EOF
 }
 
-if [ -z "$1" ]; then
-    print_help
-    exit 0
-fi
-
-case $1 in
--h)
+url=$(echo "$1" | sed 's/^[ \t]*//;s/[ \t]*$//')
+case $url in
+-h | '')
     print_help
     exit 0
     ;;
 esac
 
 output="$2"
-[ -n "$output" ] || output="%(title)s"
+[ -n "$output" ] || output='%(title)s'
 ratio="$3"
-[ -n "$ratio" ] || ratio="1.35"
+[ -n "$ratio" ] || ratio=1.35
 
-yt-dlp "$1" -f "bestaudio/best" -o "$output.%(ext)s" -R infinite --exec "ffmpeg -i '$output.%(ext)s' -filter:a atempo='$ratio' '${output}x${ratio}.%(ext)s'"
+yt-dlp "$url" -f "bestaudio/best" \
+    -o "$output.%(ext)s" \
+    --exec "ffmpeg -i '$output.%(ext)s' \
+        -filter:a atempo=$ratio '${output}x$ratio.%(ext)s'"
