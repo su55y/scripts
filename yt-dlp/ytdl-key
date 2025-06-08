@@ -58,9 +58,14 @@ parse_args "$@"
 
 [ -n "$output" ] || output="$DEFAULT_OUTPUT"
 
-echo "$url" |
-    grep -qP '^(?:https\:\/\/)?(?:www\.)?(youtube\.com\/watch\?v=[A-Za-z0-9\-_]{11}|youtu\.be\/[A-Za-z0-9\-_]{11})' ||
+is_twitch=0
+if echo "$url" | grep -qP '^(?:https\:\/\/)?(?:www\.)?(youtube\.com\/watch\?v=[-_0-9a-zA-Z]{11}|youtu\.be\/[-_0-9a-zA-Z]{11})'; then
+    is_twitch=0
+elif echo "$url" | grep -qP '^(?:https\:\/\/)?(?:www\.)?twitch\.tv\/videos\/[0-9]{10}'; then
+    is_twitch=1
+else
     die "invalid url '$url'"
+fi
 
 fetch_title() {
     curl -s "$(printf 'https://youtube.com/oembed?url=%s&format=json' "$url")" \
@@ -68,7 +73,7 @@ fetch_title() {
         -H 'Accept-Language: en-US,en;q=0.5' | jq -r .title
 }
 
-if [ "$use_title" -eq 1 ]; then
+if [ $is_twitch -eq 0 ] && [ $use_title -eq 1 ]; then
     title="$(fetch_title)"
 fi
 
