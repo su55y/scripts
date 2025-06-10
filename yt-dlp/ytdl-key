@@ -8,7 +8,7 @@ die() {
 }
 
 DEFAULT_OUTPUT="$HOME/Videos/YouTube/%(uploader)s/%(title)s.%(ext)s"
-HISTORY_DB="${XDG_CACHE_HOME:-$HOME/.cache}/playlist_ctl/playlist_ctl.db"
+HISTORY_DB="${XDG_DATA_HOME:-$HOME/.local/share}/playlist_ctl/playlist_ctl.db"
 
 show_help() {
     cat <<EOF
