@@ -13,7 +13,7 @@ COUNT_TO_LEAVE=15
 
 [ -f "$DB_FILE" ] || err_msg "Database file '$DB_FILE' not exists"
 
-if [ -z "$(sqlite3 -column "$DB_FILE" "SELECT feedurl FROM rss_item WHERE feedurl = '$FEED_URL';")" ]; then
+if [ -z "$(sqlite3 <. -init /dev/null -column "$DB_FILE" "SELECT feedurl FROM rss_item WHERE feedurl = '$FEED_URL';")" ]; then
     err_msg "No such feed url in db: '$FEED_URL'"
 fi
 
@@ -25,13 +25,13 @@ if [ -n "$answ_count" ]; then
     COUNT_TO_LEAVE=$((answ_count))
 fi
 
-count=$(($(sqlite3 -column "$DB_FILE" "SELECT COUNT(*) FROM rss_item WHERE feedurl = '$FEED_URL';")))
+count=$(($(sqlite3 <. -init /dev/null -column "$DB_FILE" "SELECT COUNT(*) FROM rss_item WHERE feedurl = '$FEED_URL';")))
 if [ $count -gt $COUNT_TO_LEAVE ]; then
     query="UPDATE rss_item SET deleted = 1 WHERE feedurl = '$FEED_URL' AND id NOT IN \
         (SELECT id FROM rss_item WHERE feedurl = '$FEED_URL' ORDER BY pubDate DESC LIMIT $COUNT_TO_LEAVE);"
-    printf '%s\n\nexecute it? [y/n]: ' "$query"
+    printf '%s\n\nexecute it? [y/N]: ' "$query"
     read -r answ_exec
     case $answ_exec in
-    [yY]*) sqlite3 "$DB_FILE" "$query" ;;
+    [yY]*) sqlite3 <. -init /dev/null "$DB_FILE" "$query" ;;
     esac
 fi
