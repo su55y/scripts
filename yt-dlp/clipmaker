@@ -1,14 +1,24 @@
 #!/usr/bin/env -S python -u
 
 import argparse
+from functools import cached_property
 import re
 import subprocess
 import time
+from typing import Any
+
+from yt_dlp import YoutubeDL
 
 FFMPEG_CMD = """ffmpeg -hide_banner -loglevel warning -stats {y} {start} {to}
 -i {stream} {end} -c copy -avoid_negative_ts make_zero {output}"""
 FFMPEG_CMD_YT = """ffmpeg -hide_banner -loglevel warning -stats {y} {start} {to}
     -i {v_stream} {start} {to} -i {a_stream} {end} -map 0:v -map 1:a -avoid_negative_ts make_zero {output}"""
+
+YT_PATTERN = r".*youtube\.com/watch\?v=[-_0-9a-zA-Z]{11}|.*youtu\.be\/[-_0-9a-zA-Z]{11}"
+TW_PATTERN = r".*twitch\.tv\/videos\/\d{10}"
+
+DEFAULT_YT_FORMAT = "136+140"
+DEFAULT_RESOLUTION = "1280x720"
 
 
 def parse_agrs() -> argparse.Namespace:
@@ -17,10 +27,7 @@ def parse_agrs() -> argparse.Namespace:
     )
 
     def validate_url(url: str) -> str | None:
-        if not re.match(
-            r".*youtube\.com/watch\?v=([-_0-9a-zA-Z]{11})|.*youtu\.be\/([-_0-9a-zA-Z]{11})|.*twitch\.tv\/videos\/(\d{10})$",
-            url,
-        ):
+        if not re.match(TW_PATTERN, url) and not re.match(YT_PATTERN, url):
             raise argparse.ArgumentTypeError("invalid url %r" % url)
         return url
 
@@ -33,13 +40,6 @@ def parse_agrs() -> argparse.Namespace:
         if not re.match(r"^\d{3,4}x\d{3,4}$", resolution):
             raise argparse.ArgumentTypeError("invalid resolution %r" % resolution)
         return resolution
-
-    def validate_format(format: str) -> str | None:
-        if not re.match(r"^\d{2,3}\+\d{2,3}$", format):
-            raise argparse.ArgumentTypeError(
-                "invalid formats pair %r (should be '\\d+\\d')" % format
-            )
-        return format
 
     parser = argparse.ArgumentParser(
         prog="clipmaker",
@@ -71,8 +71,7 @@ def parse_agrs() -> argparse.Namespace:
         "-r",
         "--resolution",
         type=validate_resolution,
-        default="1280x720",
-        help="clip resolution (default: %(default)s)",
+        help=f"clip resolution (default: {DEFAULT_RESOLUTION!r})",
     )
     parser.add_argument(
         "-o",
@@ -93,14 +92,120 @@ def parse_agrs() -> argparse.Namespace:
     parser.add_argument(
         "-f",
         "--format",
-        default="136+140",
-        type=validate_format,
-        help="formats pair string (default: %(default)r)",
+        help=f"formats pair string (default: {DEFAULT_YT_FORMAT!r})",
     )
     return parser.parse_args()
 
 
-def filter_formats(formats: dict) -> bool:
+class Clipmaker:
+    def __init__(
+        self,
+        *,
+        url: str,
+        output: str,
+        choose: bool = False,
+        force: bool = False,
+        format: str | None = None,
+        start: str | None = None,
+        duration: str | None = None,
+        to: str | None = None,
+        resolution: str | None = None,
+    ) -> None:
+        self.url = url
+        self.is_yt = bool(re.match(YT_PATTERN, self.url))
+        self.output = output
+        self.choose = choose
+        self.force = force
+        self.format = format
+        self.start = start
+        self.duration = duration
+        self.to = to
+        self.resolution = resolution
+
+    def build_cmd(self) -> str:
+        url = v_url = a_url = ""
+        ffmpeg_cmd = FFMPEG_CMD
+        if self.is_yt:
+            ffmpeg_cmd = FFMPEG_CMD_YT
+            v_url, a_url = self.get_yt_streams()
+        else:
+            url = self.get_stream()
+
+        return ffmpeg_cmd.format(
+            y="-y" if self.force else "",
+            start="-ss %s" % (self.start or 0),
+            to=f"-to {self.to}" if self.to else "",
+            stream=url,
+            v_stream=v_url,
+            a_stream=a_url,
+            end=f"-t {self.duration}" if self.duration else "",
+            output=self.output,
+        )
+
+    def get_yt_streams(self) -> tuple[str, str]:
+        # TODO
+        # allow single format with re.match(r"^\d{2,3}\+\d{2,3}$", format)
+        if self.choose:
+            self.print_formats_table()
+            while True:
+                v, a = input("choose format: ").split("+")
+                if self.check_va_formats(v, a):
+                    break
+        else:
+            if not self.format:
+                self.format = DEFAULT_YT_FORMAT
+            v, a = self.format.split("+")
+            if not self.check_va_formats(v, a):
+                exit(1)
+
+        return self.formats_map[v]["url"], self.formats_map[a]["url"]
+
+    def get_stream(self) -> str:
+        if self.format:
+            if f := self.formats_map.get(self.format):
+                return f["url"]
+            print(f"format {self.format!r} not found")
+            self.choose = True
+        if self.choose:
+            self.print_formats_table()
+            while True:
+                format_id = input("choose format: ")
+                if f := self.formats_map.get(format_id):
+                    return f["url"]
+                print(f"format {format_id!r} not found")
+        if not self.resolution:
+            self.resolution = DEFAULT_RESOLUTION
+        for f in self.formats_map.values():
+            if not f.get("vcodec") or not f.get("acodec"):
+                continue
+            if f.get("resolution") == self.resolution:
+                return f["url"]
+        else:
+            exit(f"resolution {self.resolution!r} not found")
+
+    def check_va_formats(self, v: str, a: str) -> bool:
+        for f in [v, a]:
+            if f not in self.formats_map:
+                print(f"format {f!r} not found")
+                return False
+        return True
+
+    @cached_property
+    def formats_map(self) -> dict[str, Any]:
+        with YoutubeDL() as ydl:
+            info = ydl.extract_info(self.url, download=False)
+            if not info or not isinstance(info, dict):
+                exit("can't extract info")
+            if not info.get("formats"):
+                exit("can't get formats from info")
+            return {f["format_id"]: f for f in filter(filter_format, info["formats"])}
+
+    def print_formats_table(self) -> None:
+        with YoutubeDL() as ydl:
+            print(ydl.render_formats_table({"formats": self.formats_map.values()}))
+
+
+def filter_format(formats: dict[str, Any]) -> bool:
     filters = {"ext": "mhtml", "format_note": "storyboard"}
     for k, v in filters.items():
         if formats.get(k) == v:
@@ -108,105 +213,10 @@ def filter_formats(formats: dict) -> bool:
     return True
 
 
-def get_yt_streams(url: str, choose: bool, format: str) -> tuple[str, str]:
-    try:
-        from yt_dlp import YoutubeDL
-    except ImportError as e:
-        exit(f"{e}\nhttps://github.com/yt-dlp/yt-dlp#installation")
-
-    with YoutubeDL() as ydl:
-        info = ydl.extract_info(url, download=False)
-        if not info or not isinstance(info, dict):
-            exit("can't extract info")
-        if not info.get("formats"):
-            exit("can't get formats from info")
-
-        info["formats"] = filter(filter_formats, info["formats"])
-        formats_map = {f["format_id"]: f for f in info["formats"]}
-
-        def check_formats(*formats) -> bool:
-            for f in formats:
-                if f not in formats_map:
-                    print("format %r not found" % f)
-                    return False
-            return True
-
-        if choose:
-            print(ydl.render_formats_table({**info, "formats": formats_map.values()}))
-            while True:
-                format = input("choose format: ")
-                v, a = format.split("+")
-                if check_formats(v, a):
-                    break
-        else:
-            v, a = format.split("+")
-            if not check_formats(v, a):
-                exit(1)
-
-        return formats_map[v]["url"], formats_map[a]["url"]
-
-
-def get_stream(url: str, resolution: str, choose: bool = False) -> str:
-    try:
-        from yt_dlp import YoutubeDL
-    except ImportError as e:
-        exit(f"{e}\nhttps://github.com/yt-dlp/yt-dlp#installation")
-
-    with YoutubeDL() as ydl:
-        info = ydl.extract_info(url, download=False)
-        if not info or not isinstance(info, dict):
-            exit("can't extract info")
-        if not info.get("formats"):
-            exit("can't get formats from info")
-
-        info["formats"] = filter(filter_formats, info["formats"])
-        formats_map = {f["format_id"]: f for f in info["formats"]}
-
-        if choose:
-            print(ydl.render_formats_table({**info, "formats": formats_map.values()}))
-            while True:
-                format_id = input("choose format: ")
-                if f := formats_map.get(format_id):
-                    return f["url"]
-                print("format %r not found", format_id)
-
-    assert isinstance(formats_map, dict)
-    for f in formats_map.values():
-        if not f.get("vcodec") or not f.get("acodec"):
-            continue
-        if f.get("resolution") == resolution:
-            if not re.match(r"^https.+", url := f.pop("url")):
-                exit("can't get stream url from format: %s" % f)
-            return url
-    else:
-        exit("resolution %r not available" % resolution)
+def main():
+    args = parse_agrs()
+    subprocess.run(Clipmaker(**vars(args)).build_cmd().split())
 
 
 if __name__ == "__main__":
-    args = parse_agrs()
-    if not re.match(
-        r".*youtube\.com/watch\?v=([-_0-9a-zA-Z]{11})|.*youtu\.be\/([-_0-9a-zA-Z]{11})",
-        args.url,
-    ):
-        url = get_stream(args.url, args.resolution, args.choose)
-        cmd = FFMPEG_CMD.format(
-            y="-y" if args.force else "",
-            start="-ss %s" % (args.start or 0),
-            to="-to %s" % args.to if args.to else "",
-            stream=url,
-            end="-t %s" % args.duration if args.duration else "",
-            output=args.output,
-        ).split()
-    else:
-        v_url, a_url = get_yt_streams(args.url, args.choose, args.format)
-        cmd = FFMPEG_CMD_YT.format(
-            y="-y" if args.force else "",
-            start="-ss %s" % (args.start or 0),
-            to="-to %s" % args.to if args.to else "",
-            v_stream=v_url,
-            a_stream=a_url,
-            end="-t %s" % args.duration if args.duration else "",
-            output=args.output,
-        ).split()
-
-    subprocess.run(cmd)
+    main()
