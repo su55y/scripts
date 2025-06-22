@@ -16,6 +16,7 @@ FFMPEG_CMD_YT = """ffmpeg -hide_banner -loglevel warning -stats {y} {start} {to}
 
 YT_PATTERN = r".*youtube\.com/watch\?v=[-_0-9a-zA-Z]{11}|.*youtu\.be\/[-_0-9a-zA-Z]{11}"
 TW_PATTERN = r".*twitch\.tv\/videos\/\d{10}"
+YT_FMT_PAIR_PATTERN = r"^\d{2,3}\+\d{2,3}$"
 
 DEFAULT_YT_FORMAT = "136+140"
 DEFAULT_RESOLUTION = "1280x720"
@@ -76,7 +77,7 @@ def parse_agrs() -> argparse.Namespace:
     parser.add_argument(
         "-o",
         "--output",
-        default=f"clip{time.strftime('%s')[-6:]}.mp4",
+        default=f"clip{time.strftime('%s')}.mp4",
         metavar="PATH",
         help="output path (default: %(default)s)",
     )
@@ -112,7 +113,6 @@ class Clipmaker:
         resolution: str | None = None,
     ) -> None:
         self.url = url
-        self.is_yt = bool(re.match(YT_PATTERN, self.url))
         self.output = output
         self.choose = choose
         self.force = force
@@ -125,11 +125,31 @@ class Clipmaker:
     def build_cmd(self) -> str:
         url = v_url = a_url = ""
         ffmpeg_cmd = FFMPEG_CMD
-        if self.is_yt:
+
+        # TODO: set format here if choose
+        if self.choose:
+            self.print_formats_table()
+            while True:
+                inp = input("choose format: ")
+                if re.match(r"^\d+p?$", inp) and inp in self.formats_map:
+                    url = self.formats_map[inp]["url"]
+                    break
+                elif re.match(YT_FMT_PAIR_PATTERN, inp):
+                    v, a = inp.split("+")
+                    if self.check_formats_pair(v, a):
+                        v_url = self.formats_map[v]["url"]
+                        a_url = self.formats_map[a]["url"]
+                        break
+                else:
+                    print(f"invalid format {inp!r}")
+
+        elif not re.match(YT_PATTERN, self.url) or (
+            self.format and not re.match(YT_FMT_PAIR_PATTERN, self.format)
+        ):
+            url = self.get_stream()
+        else:
             ffmpeg_cmd = FFMPEG_CMD_YT
             v_url, a_url = self.get_yt_streams()
-        else:
-            url = self.get_stream()
 
         return ffmpeg_cmd.format(
             y="-y" if self.force else "",
@@ -142,37 +162,11 @@ class Clipmaker:
             output=self.output,
         )
 
-    def get_yt_streams(self) -> tuple[str, str]:
-        # TODO
-        # allow single format with re.match(r"^\d{2,3}\+\d{2,3}$", format)
-        if self.choose:
-            self.print_formats_table()
-            while True:
-                v, a = input("choose format: ").split("+")
-                if self.check_va_formats(v, a):
-                    break
-        else:
-            if not self.format:
-                self.format = DEFAULT_YT_FORMAT
-            v, a = self.format.split("+")
-            if not self.check_va_formats(v, a):
-                exit(1)
-
-        return self.formats_map[v]["url"], self.formats_map[a]["url"]
-
     def get_stream(self) -> str:
         if self.format:
             if f := self.formats_map.get(self.format):
                 return f["url"]
             print(f"format {self.format!r} not found")
-            self.choose = True
-        if self.choose:
-            self.print_formats_table()
-            while True:
-                format_id = input("choose format: ")
-                if f := self.formats_map.get(format_id):
-                    return f["url"]
-                print(f"format {format_id!r} not found")
         if not self.resolution:
             self.resolution = DEFAULT_RESOLUTION
         for f in self.formats_map.values():
@@ -183,12 +177,14 @@ class Clipmaker:
         else:
             exit(f"resolution {self.resolution!r} not found")
 
-    def check_va_formats(self, v: str, a: str) -> bool:
-        for f in [v, a]:
-            if f not in self.formats_map:
-                print(f"format {f!r} not found")
-                return False
-        return True
+    def get_yt_streams(self) -> tuple[str, str]:
+        if not self.format:
+            self.format = DEFAULT_YT_FORMAT
+        v, a = self.format.split("+")
+        if not self.check_formats_pair(v, a):
+            exit(1)
+
+        return self.formats_map[v]["url"], self.formats_map[a]["url"]
 
     @cached_property
     def formats_map(self) -> dict[str, Any]:
@@ -203,6 +199,13 @@ class Clipmaker:
     def print_formats_table(self) -> None:
         with YoutubeDL() as ydl:
             print(ydl.render_formats_table({"formats": self.formats_map.values()}))
+
+    def check_formats_pair(self, v: str, a: str) -> bool:
+        for f in [v, a]:
+            if f not in self.formats_map:
+                print(f"format {f!r} not found")
+                return False
+        return True
 
 
 def filter_format(formats: dict[str, Any]) -> bool:
