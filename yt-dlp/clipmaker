@@ -126,7 +126,6 @@ class Clipmaker:
         url = v_url = a_url = ""
         ffmpeg_cmd = FFMPEG_CMD
 
-        # TODO: set format here if choose
         if self.choose:
             self.print_formats_table()
             while True:
@@ -178,13 +177,32 @@ class Clipmaker:
             exit(f"resolution {self.resolution!r} not found")
 
     def get_yt_streams(self) -> tuple[str, str]:
-        if not self.format:
+        if self.resolution:
+            return self.yt_streams_by_resolution()
+        elif not self.format:
             self.format = DEFAULT_YT_FORMAT
         v, a = self.format.split("+")
         if not self.check_formats_pair(v, a):
             exit(1)
 
         return self.formats_map[v]["url"], self.formats_map[a]["url"]
+
+    def yt_streams_by_resolution(self) -> tuple[str, str]:
+        v = ""
+        if self.formats_map.get("140") is None:
+            a = ""
+        else:
+            a = self.formats_map["140"]["url"]
+        for f in self.formats_map.values():
+            if not v and self.resolution == f.get("resolution", "-"):
+                v = f["url"]
+                break
+            if not a and f.get("resolution", "-") == "audio only":
+                a = f["url"]
+        else:
+            exit(f"resolution {self.resolution!r} not found")
+
+        return v, a
 
     @cached_property
     def formats_map(self) -> dict[str, Any]:
