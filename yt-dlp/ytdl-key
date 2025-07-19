@@ -1,6 +1,6 @@
 #!/bin/sh
 
-YTDL_KEY_ICON="youtube"
+: "${YTDL_KEY_ICON:=youtube}"
 
 die() {
     [ -n "$1" ] && notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "$1"
@@ -29,10 +29,11 @@ title=""
 use_title=0
 use_history=0
 ytdl_opts=""
+tsp_opts=""
 
 parse_args() {
     OPTIND=1
-    while getopts "u:o:O:Hht" opt; do
+    while getopts "u:o:O:T:Hht" opt; do
         case "$opt" in
         h)
             show_help
@@ -43,6 +44,7 @@ parse_args() {
         t) use_title=1 ;;
         H) use_history=1 ;;
         O) ytdl_opts=$OPTARG ;;
+        T) tsp_opts=$OPTARG ;;
         *) exit 1 ;;
         esac
     done
@@ -80,7 +82,7 @@ fi
 [ -n "$title" ] || title="$url"
 
 notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "⬇️Start downloading '$title'..."
-qid="$(tsp yt-dlp "$url" -o "$output" $ytdl_opts ||
+qid="$(tsp $tsp_opts yt-dlp "$url" -o "$output" $ytdl_opts ||
     notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "❌Download failed")"
 tsp -D "$qid" notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "✅Download done: '$title'"
 if [ "$use_history" -eq 1 ]; then
