@@ -1,19 +1,19 @@
 #!/bin/sh
 
-CRONTAB_BAK="$HOME/crontab.bak"
-CRONTAB_BAK_OLD="$CRONTAB_BAK.old"
+: "${CRONTAB_BAK:=$HOME/crontab.bak}"
+: "${CRONTAB_BAK_OLD:=$CRONTAB_BAK.old}"
 
 crons="$(crontab -l 2>/dev/null)"
 
 if [ ! -f "$CRONTAB_BAK" ]; then
-	case $crons in
-	"no crontab"*) ;;
-	*)
-		echo "$crons" >"$CRONTAB_BAK"
-		crontab -r && echo "❎all crons was removed"
-		;;
-	esac
+    case $crons in
+    no\ crontab*) ;;
+    *)
+        echo "$crons" >"$CRONTAB_BAK"
+        crontab -r && echo '❎all crons was removed'
+        ;;
+    esac
 else
-	crontab <"$CRONTAB_BAK" && echo "✅all crons was restored"
-	mv "$CRONTAB_BAK" "$CRONTAB_BAK_OLD"
+    crontab <"$CRONTAB_BAK" && echo '✅all crons was restored'
+    mv "$CRONTAB_BAK" "$CRONTAB_BAK_OLD"
 fi
