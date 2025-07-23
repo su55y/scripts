@@ -1,6 +1,6 @@
 #!/bin/sh
 
-YTDL_KEY_P_ICON="youtube"
+: "${YTDL_KEY_P_ICON:=youtube}"
 
 die() {
     [ -n "$1" ] && notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "$1"
@@ -53,7 +53,7 @@ parse_args() {
 parse_args "$@"
 
 [ -n "$url" ] || url="$(xclip -o -selection clipboard)"
-[ -n "$url" ] || die "no url passed"
+[ -n "$url" ] || die 'no url passed'
 
 [ -n "$output" ] || output="$DEFAULT_OUTPUT"
 
@@ -74,11 +74,10 @@ fi
 
 [ -n "$title" ] || title="$url"
 
-notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "⬇️Start downloading '$title'..."
 if [ "$is_now" -eq 1 ]; then
     yt-dlp "$url" -o "$output" $ytdl_opts || die "❌Download failed: '$title'"
-    notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "✅Download done: '$title'"
 else
+    notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "⬇️Start downloading '$title'..."
     qid="$(tsp yt-dlp "$url" -o "$output" $ytdl_opts || notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "❌Download failed")"
     tsp -D "$qid" notify-send -i "$YTDL_KEY_P_ICON" -a yt-dlp "✅Download done: '$title'"
 fi
