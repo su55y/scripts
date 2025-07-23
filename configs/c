@@ -1,8 +1,10 @@
 #!/bin/sh
 
-config_editor="${CONFIG_EDITOR:-$EDITOR}"
-if [ -z "$config_editor" ]; then
-    echo "CONFIG_EDITOR and EDITOR variables are not set"
+: "${C_FZF_CMD:=fzf --preview=}"
+
+: "${CONFIG_EDITOR:=$EDITOR}"
+if [ -z "$CONFIG_EDITOR" ]; then
+    echo 'CONFIG_EDITOR and EDITOR variables are not set'
     exit 1
 fi
 
@@ -12,8 +14,6 @@ if [ ! -d "$CONFIG_DIR" ]; then
     exit 1
 fi
 
-C_FZF_CMD_="fzf --preview="
-[ -n "$C_FZF_CMD" ] && C_FZF_CMD_="$C_FZF_CMD"
 
 inp=
 if [ -n "$1" ]; then
@@ -24,11 +24,11 @@ elif [ ! -t 0 ]; then
     done
 fi
 
-[ -n "$inp" ] && C_FZF_CMD_="$(printf "%s -q '%s'" "$C_FZF_CMD_" "$inp")"
+[ -n "$inp" ] && set -- -q "$inp"
 
 choice="$(find -L "$CONFIG_DIR" -maxdepth 1 -printf '%f\n' |
-    grep -P '^[^\.].+$' | eval "$C_FZF_CMD_")"
+    grep -P '^[^\.].+$' | $C_FZF_CMD "$@")"
 
 [ -n "$choice" ] || exit 0
 
-"$config_editor" "$CONFIG_DIR/$choice"
+"$CONFIG_EDITOR" "$CONFIG_DIR/$choice"
