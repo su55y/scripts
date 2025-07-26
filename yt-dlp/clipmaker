@@ -16,7 +16,7 @@ FFMPEG_CMD_YT = """ffmpeg -hide_banner -loglevel warning -stats {y} {start} {to}
 
 YT_PATTERN = r".*youtube\.com/watch\?v=[-_0-9a-zA-Z]{11}|.*youtu\.be\/[-_0-9a-zA-Z]{11}"
 TW_PATTERN = r".*twitch\.tv\/videos\/\d{10}"
-YT_FMT_PAIR_PATTERN = r"^\d{2,3}\+\d{2,3}$"
+YT_FMT_PAIR_PATTERN = r"^\d{2,3}\+\d{2,3}(?:\-\d+)?$"
 
 DEFAULT_YT_FORMAT = "136+140"
 DEFAULT_RESOLUTION = "1280x720"
