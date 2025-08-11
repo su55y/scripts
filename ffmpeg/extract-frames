@@ -8,65 +8,24 @@ import re
 import subprocess as sp
 from pathlib import Path
 from sys import argv
-from typing import Dict, List, Optional
-
-FFMPEG = "ffmpeg"
-FFPROBE = "ffprobe"
-MONTAGE = "montage"
+from typing import Any
 
 
-def build_cmd(
-    input: Path, output: Path, interval: float, count_: int, verbosity: str
-) -> list[str]:
-    if interval < 2:
-        return [
-            FFMPEG,
-            verbosity,
-            "-i",
-            str(input),
-            "-vframes",
-            "%d" % count_,
-            str(output),
-        ]
-    return [
-        FFMPEG,
-        *verbosity.split(),
-        "-i",
-        str(input),
-        "-vf",
-        "thumbnail=%s,setpts=N/TB" % interval,
-        "-r",
-        "1",
-        "-vframes",
-        "%d" % count_,
-        str(output),
-    ]
-
-
-EXTRACT_CMD = f"{FFMPEG} %s -i %s -vf thumbnail=%s,setpts=N/TB -r 1 -vframes %d %s"
-EXTRACT_ALL_CMD = f"{FFMPEG} %s -i %s -vframes %d %s"
+EXTRACT_CMD = "ffmpeg %s -i %s -vf thumbnail=%s,setpts=N/TB -r 1 -vframes %d %s"
+EXTRACT_ALL_CMD = "ffmpeg %s -i %s -vframes %d %s"
 SILENCE_OPTS = "-hide_banner -loglevel warning -stats"
-PROBE_CMD = f"{FFPROBE} -v quiet -show_streams -select_streams v:0 -of json '%s'"
-MONTAGE_CMD = f"{MONTAGE} -geometry +0+0 -tile %s %s %s"
+PROBE_CMD = (
+    "ffprobe -v quiet -show_format -show_streams -select_streams v:0 -of json '%s'"
+)
+MONTAGE_CMD = "montage -geometry +0+0 -tile %s %s %s"
 
 DEFAULT_COUNT = 10
 DEFAULT_FMT = "frames/frame%02d.png"
 DEFAULT_PREVIEW = "preview.png"
 
 
-@dataclass(slots=True)
-class Probe:
-    width: int
-    height: int
-    duration: float
-    r_frame_rate: float
-
-    def calc_interval(self, framecount: int) -> float:
-        return round((self.r_frame_rate * self.duration) / framecount, 2)
-
-
 def parse_args():
-    def check_count(arg: str) -> Optional[int]:
+    def check_count(arg: str) -> int:
         try:
             num = int(arg)
             if num < 1:
@@ -76,13 +35,7 @@ def parse_args():
         else:
             return num
 
-    def check_file(arg: str) -> Optional[Path]:
-        filepath = Path(arg)
-        if not filepath.exists() or not filepath.is_file():
-            raise argparse.ArgumentTypeError("invalid input file path '%s'" % arg)
-        return filepath
-
-    def check_format(arg: str) -> Optional[Path]:
+    def check_format(arg: str) -> Path:
         try:
             path = Path(arg)
             if not re.match(r"^.*%(?:0\d)?d\..+$", path.name):
@@ -104,12 +57,7 @@ def parse_args():
             return path
 
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "file",
-        type=check_file,
-        metavar="PATH",
-        help="input file",
-    )
+    parser.add_argument("file", help="input file")
     parser.add_argument(
         "-c",
         "--count",
@@ -145,57 +93,43 @@ def parse_args():
     return parser.parse_args()
 
 
-def choose_video_stream(streams: List[Dict]) -> Optional[Dict]:
-    for stream in streams:
-        if stream.get("codec_type") == "video":
-            return stream
+class InvalidProbeFormat(Exception):
+    pass
 
 
-def get_probe(file: str) -> Probe:
-    try:
-        cmd = PROBE_CMD % file
-        out = sp.check_output(cmd, shell=True, stderr=sp.DEVNULL, timeout=10)
-        if not out:
-            raise Exception("can't get output from cmd '%s'" % cmd)
-        match probe := json.loads(out.decode()):
-            case {
-                "streams": [
-                    {
-                        "codec_type": str(),
-                        "width": int(),
-                        "height": int(),
-                        "duration": str(),
-                        "r_frame_rate": str(),
-                    }
-                ]
-            }:
-                streams = probe.get("streams")
-                if not isinstance(streams, List) or len(streams) < 1:
-                    exit("can't find streams")
-                if not (vstream := choose_video_stream(streams)):
-                    exit("can't find video stream")
+@dataclass(slots=True)
+class Probe:
+    width: int
+    height: int
+    duration: float
+    r_frame_rate: float
 
-                probe_dict = {}
-                for key in Probe.__annotations__:
-                    if not (value := vstream.get(key)):
-                        exit("can't find %s" % key)
-                    match key:
-                        case "duration":
-                            if not re.match(r"^(\d+(?:\.\d+)?)$", value):
-                                exit("invalid duration '%s'" % value)
-                            value = float(value)
-                        case "r_frame_rate":
-                            if not re.match(r"^\d+(?:\.\d+)?\/\d+$", value):
-                                exit("invalid r_frame_rate: %s" % value)
-                            value = float(eval(value))
-                        case "width" | "height":
-                            value = int(value)
-                    probe_dict[key] = value
+    def calc_interval(self, framecount: int) -> float:
+        return round((self.r_frame_rate * self.duration) / framecount, 2)
 
-                return Probe(**probe_dict)
-        raise Exception("unexpected probe format")
-    except Exception as e:
-        exit(repr(e))
+
+def parse_probe(s: dict[str, Any]) -> Probe:
+    format = s.get("format", dict())
+    if not format or "duration" not in format:
+        raise InvalidProbeFormat(f"{format=!r}")
+    streams = s.get("streams", list())
+    if not streams or len(streams) != 1:
+        raise InvalidProbeFormat(f"{streams=!r}")
+    match streams[0]:
+        case {
+            "width": int(),
+            "height": int(),
+            "r_frame_rate": str(),
+        }:
+            if not re.match(r"\d+\/\d+", streams[0]["r_frame_rate"]):
+                raise InvalidProbeFormat(f"{streams[0]['r_frame_rate']=!r}")
+            return Probe(
+                width=int(streams[0]["width"]),
+                height=int(streams[0]["height"]),
+                duration=float(format["duration"]),
+                r_frame_rate=float(eval(streams[0]["r_frame_rate"])),
+            )
+    raise InvalidProbeFormat(f"{streams[0]=!r}")
 
 
 def generate_preview(args: argparse.Namespace, probe: Probe):
@@ -229,30 +163,55 @@ def generate_preview(args: argparse.Namespace, probe: Probe):
     sp.run(cmd.split())
 
 
-def check_executable(name) -> bool:
-    code, _ = sp.getstatusoutput(f"which {name}")
-    return code == 0
+def build_cmd(
+    *, input: Path, output: Path, interval: float, count: int, verbosity: str
+) -> list[str]:
+    if interval < 2:
+        return [
+            "ffmpeg",
+            verbosity,
+            "-i",
+            str(input),
+            "-vframes",
+            str(count),
+            str(output),
+        ]
+    return [
+        "ffmpeg",
+        *verbosity.split(),
+        "-i",
+        str(input),
+        "-vf",
+        "thumbnail=%s,setpts=N/TB" % interval,
+        "-r",
+        "1",
+        "-vframes",
+        str(count),
+        str(output),
+    ]
 
 
 if __name__ == "__main__":
-    if not check_executable(FFMPEG):
-        exit(f"{FFMPEG} executable is not available")
-    if not check_executable(FFPROBE):
-        exit(f"{FFPROBE} executable is not available")
-
     args = parse_args()
-    probe = get_probe(args.file)
+    probe_cmd = PROBE_CMD % args.file
+    probe_out = sp.check_output(probe_cmd, shell=True, stderr=sp.DEVNULL, timeout=10)
+    if not probe_out:
+        raise Exception("can't get output from cmd '%s'" % probe_cmd)
+    raw_probe = json.loads(probe_out)
+    probe = parse_probe(raw_probe)
     interval = probe.calc_interval(args.count)
     verbosity = "" if args.verbose else SILENCE_OPTS
     cmd = build_cmd(
-        args.file,
-        args.format,
-        interval,
-        args.count,
-        verbosity,
+        input=args.file,
+        output=args.format,
+        interval=interval,
+        count=args.count,
+        verbosity=verbosity,
     )
-    print(cmd)
+    try:
+        print(" ".join(cmd))
+        _ = input("Press Enter to continue...")
+    except KeyboardInterrupt:
+        exit(0)
     if sp.run(cmd).returncode == 0 and args.preview:
-        if not check_executable(MONTAGE):
-            exit(f"{MONTAGE} executable is not available")
         generate_preview(args, probe)
