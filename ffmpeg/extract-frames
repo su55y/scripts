@@ -11,12 +11,7 @@ from sys import argv
 from typing import Any
 
 
-EXTRACT_CMD = "ffmpeg %s -i %s -vf thumbnail=%s,setpts=N/TB -r 1 -vframes %d %s"
-EXTRACT_ALL_CMD = "ffmpeg %s -i %s -vframes %d %s"
 SILENCE_OPTS = "-hide_banner -loglevel warning -stats"
-PROBE_CMD = (
-    "ffprobe -v quiet -show_format -show_streams -select_streams v:0 -of json '%s'"
-)
 MONTAGE_CMD = "montage -geometry +0+0 -tile %s %s %s"
 
 DEFAULT_COUNT = 10
@@ -43,10 +38,10 @@ def parse_args():
             if not path.parent.exists():
                 if "-y" not in argv[1:]:
                     resp = input(
-                        "path '%s' not exists, create?\n[y/n (default: n)]: "
+                        "path '%s' not exists, create? [Y/n]: "
                         % path.parent.absolute()
                     )
-                    if not re.match(r"^[yY](?:es)?$", resp):
+                    if resp.lower().startswith("n"):
                         exit(0)
                 path.parent.mkdir(parents=True, exist_ok=True)
         except KeyboardInterrupt:
@@ -104,9 +99,6 @@ class Probe:
     duration: float
     r_frame_rate: float
 
-    def calc_interval(self, framecount: int) -> float:
-        return round((self.r_frame_rate * self.duration) / framecount, 2)
-
 
 def parse_probe(s: dict[str, Any]) -> Probe:
     format = s.get("format", dict())
@@ -163,55 +155,45 @@ def generate_preview(args: argparse.Namespace, probe: Probe):
     sp.run(cmd.split())
 
 
-def build_cmd(
-    *, input: Path, output: Path, interval: float, count: int, verbosity: str
-) -> list[str]:
-    if interval < 2:
-        return [
-            "ffmpeg",
-            verbosity,
-            "-i",
-            str(input),
-            "-vframes",
-            str(count),
-            str(output),
-        ]
-    return [
-        "ffmpeg",
-        *verbosity.split(),
-        "-i",
-        str(input),
-        "-vf",
-        "thumbnail=%s,setpts=N/TB" % interval,
-        "-r",
-        "1",
-        "-vframes",
-        str(count),
-        str(output),
-    ]
-
-
 if __name__ == "__main__":
     args = parse_args()
-    probe_cmd = PROBE_CMD % args.file
-    probe_out = sp.check_output(probe_cmd, shell=True, stderr=sp.DEVNULL, timeout=10)
+
+    probe_cmd = [
+        "ffprobe",
+        "-v",
+        "quiet",
+        "-show_format",
+        "-show_streams",
+        "-select_streams",
+        "v:0",
+        "-of",
+        "json",
+        args.file,
+    ]
+    if args.verbose:
+        print(" ".join(probe_cmd))
+    probe_out = sp.check_output(probe_cmd, stderr=sp.DEVNULL, timeout=10)
     if not probe_out:
         raise Exception("can't get output from cmd '%s'" % probe_cmd)
     raw_probe = json.loads(probe_out)
     probe = parse_probe(raw_probe)
-    interval = probe.calc_interval(args.count)
+    interval = int(probe.duration / args.count)
     verbosity = "" if args.verbose else SILENCE_OPTS
-    cmd = build_cmd(
-        input=args.file,
-        output=args.format,
-        interval=interval,
-        count=args.count,
-        verbosity=verbosity,
-    )
-    try:
+
+    cmd = [
+        "ffmpeg",
+        *verbosity.split(),
+        "-i",
+        args.file,
+        "-filter:v",
+        f"select='not(mod(t,{interval}))',setpts=N/(FRAME_RATE*TB)",
+        "-fps_mode",
+        "vfr",
+        "-frames:v",
+        str(args.count),
+        str(args.format),
+    ]
+    if args.verbose:
         print(" ".join(cmd))
-        _ = input("Press Enter to continue...")
-    except KeyboardInterrupt:
-        exit(0)
     if sp.run(cmd).returncode == 0 and args.preview:
         generate_preview(args, probe)
