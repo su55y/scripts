@@ -38,8 +38,7 @@ def parse_args():
             if not path.parent.exists():
                 if "-y" not in argv[1:]:
                     resp = input(
-                        "path '%s' not exists, create? [Y/n]: "
-                        % path.parent.absolute()
+                        "path '%s' not exists, create? [Y/n]: " % path.parent.absolute()
                     )
                     if resp.lower().startswith("n"):
                         exit(0)
@@ -97,7 +96,6 @@ class Probe:
     width: int
     height: int
     duration: float
-    r_frame_rate: float
 
 
 def parse_probe(s: dict[str, Any]) -> Probe:
@@ -111,15 +109,11 @@ def parse_probe(s: dict[str, Any]) -> Probe:
         case {
             "width": int(),
             "height": int(),
-            "r_frame_rate": str(),
         }:
-            if not re.match(r"\d+\/\d+", streams[0]["r_frame_rate"]):
-                raise InvalidProbeFormat(f"{streams[0]['r_frame_rate']=!r}")
             return Probe(
                 width=int(streams[0]["width"]),
                 height=int(streams[0]["height"]),
                 duration=float(format["duration"]),
-                r_frame_rate=float(eval(streams[0]["r_frame_rate"])),
             )
     raise InvalidProbeFormat(f"{streams[0]=!r}")
 
