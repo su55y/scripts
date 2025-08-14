@@ -77,13 +77,16 @@ parse_args() {
 
 parse_args "$@"
 
+
 if [ ! -f "$INPUT_FILE" ]; then
     echo "INPUT_FILE '$INPUT_FILE' not found"
     exit 1
 fi
 
-echo "Extracting $FRAMES_COUNT frames..."
-echo "Output fmt: '$OUTPUT_FMT'..."
+print_log() { [ $VERBOSE -eq 1 ] && echo "$1"; }
+
+print_log "Extracting $FRAMES_COUNT frames..."
+print_log "Output fmt: '$OUTPUT_FMT'..."
 
 PROBE_FILE="${TEMPDIR:-/tmp}/$INPUT_FILE.probe.json"
 if [ ! -f "$PROBE_FILE" ]; then
@@ -121,10 +124,10 @@ INTERVAL=$(echo "$DURATION/$FRAMES_COUNT" | bc)
 if [ $VERBOSE -eq 1 ]; then
     quiet=
 else
-    quiet='-hide_banner -loglevel warning -stats'
+    quiet='-loglevel warning -stats'
 fi
 
-ffmpeg $quiet -i "$INPUT_FILE" \
+ffmpeg -hide_banner $quiet -i "$INPUT_FILE" \
     -filter:v "select='not(mod(t,$INTERVAL))',setpts=N/(FRAME_RATE*TB)'" \
     -fps_mode vfr -frames:v $FRAMES_COUNT "$OUTPUT_FMT" || exit 1
 
@@ -137,22 +140,27 @@ if [ $GENERATE_PREVIEW -eq 1 ]; then
         rows=$((FRAMES_COUNT / ${sqrt_count%.*}))
         cols=$((FRAMES_COUNT / rows))
 
-        # WIDTH=$(jq -r '.streams[0]?.width?' "$PROBE_FILE")
-        # if [ "$WIDTH" = null ]; then
-        #     echo "Can't get width from probe $PROBE_FILE"
-        # fi
-        # HEIGHT=$(jq -r '.streams[0]?.height?' "$PROBE_FILE")
-        # if [ "$HEIGHT" = null ]; then
-        #     echo "Can't get height from probe $PROBE_FILE"
-        # fi
-        #
-        # TODO: swap cols and rows for vertical aspect ratio
-        # if (probe.width / probe.height) < 1 and cols < rows:
-        #     cols, rows = rows, cols
-        PREVIEW_TEMPLATE=${rows}x${cols}
+        WIDTH=$(jq -r '.streams[0]?.width?' "$PROBE_FILE")
+        if [ "$WIDTH" = null ]; then
+            echo "Can't get width from probe $PROBE_FILE"
+            exit 1
+        fi
+        HEIGHT=$(jq -r '.streams[0]?.height?' "$PROBE_FILE")
+        if [ "$HEIGHT" = null ]; then
+            echo "Can't get height from probe $PROBE_FILE"
+            exit 1
+        fi
+
+        if [ $WIDTH -lt $HEIGHT ] && [ $cols -lt $rows ]; then
+            tmp_cols=$cols
+            cols=$rows
+            rows=$tmp_cols
+        fi
+
+        PREVIEW_TEMPLATE=${cols}x${rows}
     fi
 
-    echo "Generating $PREVIEW_TEMPLATE preview '$PREVIEW_OUTPUT'..."
+    print_log "Generating $PREVIEW_TEMPLATE preview '$PREVIEW_OUTPUT'..."
     inputs=
     for i in $(seq 1 $FRAMES_COUNT); do
         filename="$(printf "$OUTPUT_FMT" $i)"
