@@ -56,18 +56,19 @@ parse_args() {
 parse_args "$@"
 
 [ -n "$url" ] || url="$(xclip -o -selection clipboard)"
-[ -n "$url" ] || die "no url passed"
+[ -n "$url" ] || die 'no url passed'
 
 [ -n "$output" ] || output="$DEFAULT_OUTPUT"
 
 is_twitch=0
-if echo "$url" | grep -qP '^(?:https\:\/\/)?(?:www\.)?(youtube\.com\/watch\?v=[-_0-9a-zA-Z]{11}|youtu\.be\/[-_0-9a-zA-Z]{11})'; then
-    is_twitch=0
-elif echo "$url" | grep -qP '^(?:https\:\/\/)?(?:www\.)?twitch\.tv\/videos\/[0-9]{10}'; then
+if echo "$url" | grep -qP '^(?:https\:\/\/)?(?:www\.)?twitch\.tv\/videos\/[0-9]{10}'; then
     is_twitch=1
 else
-    die "invalid url '$url'"
+    url_="$(echo "$url" | grep -oP '^(?:https://)?((?:www\.)?youtube\.com\/watch\?v=|youtu\.be/)[-_0-9a-zA-z]{11}')"
+    [ -z "$url_" ] && die "invalid url '$url'"
+    url="$url_"
 fi
+
 
 fetch_title() {
     curl -s "$(printf 'https://youtube.com/oembed?url=%s&format=json' "$url")" \
