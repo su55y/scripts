@@ -18,7 +18,6 @@ YT_PATTERN = r".*youtube\.com/watch\?v=[-_0-9a-zA-Z]{11}|.*youtu\.be\/[-_0-9a-zA
 TW_PATTERN = r".*twitch\.tv\/videos\/\d{10}"
 YT_FMT_PAIR_PATTERN = r"^\d{2,3}\+\d{2,3}(?:\-\d+)?$"
 
-DEFAULT_YT_FORMAT = "136+140"
 DEFAULT_RESOLUTION = "1280x720"
 
 
@@ -93,7 +92,7 @@ def parse_agrs() -> argparse.Namespace:
     parser.add_argument(
         "-f",
         "--format",
-        help=f"formats pair string (default: {DEFAULT_YT_FORMAT!r})",
+        help=f"formats pair string",
     )
     return parser.parse_args()
 
@@ -121,6 +120,7 @@ class Clipmaker:
         self.duration = duration
         self.to = to
         self.resolution = resolution
+        self.format_id: str = ""
 
     def build_cmd(self) -> str:
         url = v_url = a_url = ""
@@ -177,10 +177,11 @@ class Clipmaker:
             exit(f"resolution {self.resolution!r} not found")
 
     def get_yt_streams(self) -> tuple[str, str]:
+        _ = self.formats_map
         if self.resolution:
             return self.yt_streams_by_resolution()
         elif not self.format:
-            self.format = DEFAULT_YT_FORMAT
+            self.format = self.format_id
         v, a = self.format.split("+")
         if not self.check_formats_pair(v, a):
             exit(1)
@@ -189,10 +190,10 @@ class Clipmaker:
 
     def yt_streams_by_resolution(self) -> tuple[str, str]:
         v = ""
-        if self.formats_map.get("140") is None:
-            a = ""
-        else:
-            a = self.formats_map["140"]["url"]
+        a = ""
+        if len(self.format_id.split("+")) == 2:
+            _, af = self.format_id.split("+")
+            a = self.formats_map.get(af, {"url": ""})["url"]
         for f in self.formats_map.values():
             if not v and self.resolution == f.get("resolution", "-"):
                 v = f["url"]
@@ -212,6 +213,8 @@ class Clipmaker:
                 exit("can't extract info")
             if not info.get("formats"):
                 exit("can't get formats from info")
+
+            self.format_id = info.get("format_id", "")
             return {f["format_id"]: f for f in filter(filter_format, info["formats"])}
 
     def print_formats_table(self) -> None:
