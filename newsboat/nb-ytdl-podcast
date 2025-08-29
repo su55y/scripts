@@ -23,6 +23,7 @@ class AtempoPP(PostProcessor):
         output_file = input_file.with_suffix(f".x{r}" + input_file.suffix)
         cmd = [
             "ffmpeg",
+            "-hide_banner",
             "-y",
             "-i",
             str(input_file),
