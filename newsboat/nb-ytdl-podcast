@@ -2,26 +2,32 @@
 
 from pathlib import Path
 import subprocess as sp
+import os
 import sys
 
 from yt_dlp import YoutubeDL
 from yt_dlp.postprocessor.common import PostProcessor
 
-RATIO = 1.4
+DEFAULT_RATIO = 1.4
 DEFAULT_OUTPUT = str(Path.home() / "Music/Podcasts/%(uploader)s/%(title)s.%(ext)s")
 
 
 class AtempoPP(PostProcessor):
+    def __init__(self, ratio: float, downloader=None):
+        super().__init__(downloader)
+        self.__ratio = ratio
+
     def run(self, information):
         input_file = Path(information["filepath"])
-        output_file = input_file.with_suffix(f".x{RATIO}" + input_file.suffix)
+        r = str(self.__ratio).rstrip("0").rstrip(".")
+        output_file = input_file.with_suffix(f".x{r}" + input_file.suffix)
         cmd = [
             "ffmpeg",
             "-y",
             "-i",
             str(input_file),
             "-filter:a",
-            f"atempo={RATIO}",
+            f"atempo={self.__ratio}",
             str(output_file),
         ]
         sp.run(cmd, check=True)
@@ -29,14 +35,21 @@ class AtempoPP(PostProcessor):
 
 
 if __name__ == "__main__":
-    params = {
-        "format": "ba",
-        "outtmpl": DEFAULT_OUTPUT,
-    }
     args = sys.argv[1:]
     if len(args) == 0:
         print(f"usage: {sys.argv[0]} URL...")
         sys.exit(1)
-    with YoutubeDL(params) as ytdl:
-        ytdl.add_post_processor(AtempoPP())
+
+    try:
+        ratio = float(os.environ.get("RATIO", ""))
+    except:
+        ratio = DEFAULT_RATIO
+
+    with YoutubeDL(
+        params={
+            "format": "ba",
+            "outtmpl": os.environ.get("OUTPUT", DEFAULT_OUTPUT),
+        }
+    ) as ytdl:
+        ytdl.add_post_processor(AtempoPP(ratio=ratio))
         ytdl.download(args)
