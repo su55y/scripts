@@ -1,0 +1,39 @@
+#!/bin/sh
+
+if [ $# -ne 1 ]; then
+    echo "Usage: $(basename $0) FILE_LIST"
+    exit 1
+elif [ ! -f "$1" ]; then
+    echo "Files list not found at '$1'"
+    exit 1
+fi
+
+amount=$(wc -l <"$1")
+numlen=${#amount}
+numfmt="%0${numlen}d"
+example=$(printf "$numfmt" 1)
+
+printf 'Rename %d files to %d-based digits (e.g. 1 -> %s)? [y/N]: ' $amount $numlen $example
+read -r answ
+case $answ in
+[yY]*) ;;
+*) exit 0 ;;
+esac
+
+while read -r line; do
+    index="${line%% *}"
+    rest="${line#* }"
+    if [ ! -f "$line" ]; then
+        echo "File '$line' not found"
+        continue
+    fi
+    case $index in
+    *[!0-9]*) echo "Invalid number '$index' in line '$line'" ;;
+    [[:digit:]]*)
+        newname="$(printf "$numfmt" $index) $rest"
+        mv -v "$line" "$newname"
+        ;;
+    *) echo "Invalid number '$index' in line '$line'" ;;
+    esac
+
+done <"$1"
