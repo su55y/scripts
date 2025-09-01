@@ -1,14 +1,52 @@
 #!/bin/sh
 
-if [ $# -ne 1 ]; then
-    echo "Usage: $(basename $0) FILE_LIST"
-    exit 1
-elif [ ! -f "$1" ]; then
-    echo "Files list not found at '$1'"
+show_help() {
+    cat <<EOF
+usage: $(basename $0) [-l FILE_LIST] [-h]
+
+options:
+  -h           show this help message and exit
+  -d DELIMITER index delimiter (default: ' ')
+  -l FILE_LIST filelist to rename, if not passed scan current directory
+EOF
+}
+
+DEFAULT_FILE_LIST=/tmp/bulk-rename-file-list.txt
+FILE_LIST=
+DELIMITER=' '
+
+parse_args() {
+    OPTIND=1
+    while getopts "d:l:h" opt; do
+        case $opt in
+        l) FILE_LIST=$OPTARG ;;
+        d) DELIMITER=$OPTARG ;;
+        *)
+            show_help
+            exit 0
+            ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+    [ "${1:-}" = "--" ] && shift
+}
+
+parse_args "$@"
+
+if [ -z "$FILE_LIST" ]; then
+    FILE_LIST="$DEFAULT_FILE_LIST"
+    printf '' >"$FILE_LIST" || exit 1
+    find "$PWD" -type f | while read -r f; do
+        if echo "$(basename "$f")" | grep -qP "^\d+${DELIMITER}.+"; then
+            echo "$f" >>"$FILE_LIST"
+        fi
+    done
+elif [ ! -f "$FILE_LIST" ]; then
+    echo "Files list not found at '$FILE_LIST'"
     exit 1
 fi
 
-amount=$(wc -l <"$1")
+amount=$(wc -l <"$FILE_LIST")
 numlen=${#amount}
 numfmt="%0${numlen}d"
 example=$(printf "$numfmt" 1)
@@ -21,8 +59,10 @@ case $answ in
 esac
 
 while read -r line; do
-    index="${line%% *}"
-    rest="${line#* }"
+    base="$(basename "$line")"
+    parent="$(dirname "$line")"
+    index="${base%%"$DELIMITER"*}"
+    rest="${base#*"$DELIMITER"}"
     if [ ! -f "$line" ]; then
         echo "File '$line' not found"
         continue
@@ -30,10 +70,11 @@ while read -r line; do
     case $index in
     *[!0-9]*) echo "Invalid number '$index' in line '$line'" ;;
     [[:digit:]]*)
-        newname="$(printf "$numfmt" $index) $rest"
+        newname="$(printf "$numfmt" $index)${DELIMITER}$rest"
+        [ -n "$parent" ] && newname="$parent/$newname"
         mv -v "$line" "$newname"
         ;;
     *) echo "Invalid number '$index' in line '$line'" ;;
     esac
 
-done <"$1"
+done <"$FILE_LIST"
