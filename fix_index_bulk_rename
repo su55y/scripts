@@ -2,25 +2,28 @@
 
 show_help() {
     cat <<EOF
-usage: $(basename $0) [-l FILE_LIST] [-h]
+usage: $(basename $0) [-l FILE_LIST] [-d DELIMITER] [-w WIDTH] [-h]
 
 options:
   -h           show this help message and exit
   -d DELIMITER index delimiter (default: ' ')
   -l FILE_LIST filelist to rename, if not passed scan current directory
+  -w WIDTH     number width (default based on count of files)
 EOF
 }
 
 DEFAULT_FILE_LIST=/tmp/bulk-rename-file-list.txt
 FILE_LIST=
 DELIMITER=' '
+WIDTH=
 
 parse_args() {
     OPTIND=1
-    while getopts "d:l:h" opt; do
+    while getopts "d:l:w:h" opt; do
         case $opt in
         l) FILE_LIST=$OPTARG ;;
         d) DELIMITER=$OPTARG ;;
+        w) WIDTH=$OPTARG ;;
         *)
             show_help
             exit 0
@@ -47,11 +50,14 @@ elif [ ! -f "$FILE_LIST" ]; then
 fi
 
 amount=$(wc -l <"$FILE_LIST")
-numlen=${#amount}
+if [ -z "$WIDTH" ]; then
+    numlen=${#amount}
+else
+    numlen=$WIDTH
+fi
 numfmt="%0${numlen}d"
-example=$(printf "$numfmt" 1)
 
-printf 'Rename %d files to %d-based digits (e.g. 1 -> %s)? [y/N]: ' $amount $numlen $example
+printf 'Rename %d files by changing their indexes to %d-digit numbers? [y/N]: ' $amount $numlen
 read -r answ
 case $answ in
 [yY]*) ;;
@@ -72,7 +78,7 @@ while read -r line; do
     [[:digit:]]*)
         newname="$(printf "$numfmt" $index)${DELIMITER}$rest"
         [ -n "$parent" ] && newname="$parent/$newname"
-        mv -v "$line" "$newname"
+        mv -nv "$line" "$newname"
         ;;
     *) echo "Invalid number '$index' in line '$line'" ;;
     esac
