@@ -3,6 +3,7 @@
 from pathlib import Path
 import subprocess as sp
 import os
+import re
 import sys
 
 from yt_dlp import YoutubeDL
@@ -35,6 +36,21 @@ class AtempoPP(PostProcessor):
         return [], information
 
 
+def clean_urls(urls: list[str]) -> list[str]:
+    rxl = re.compile(
+        r"^((?:https:\/\/)?(?:www\.)?youtube\.com\/watch\?v=[-_0-9a-zA-Z]{11})(?:&.+)?$"
+    )
+    rxs = re.compile(r"^((?:https\:\/\/)?youtu\.be\/[-_0-9a-zA-Z]{11})(?:\?.+)?$")
+    for i in range(len(urls)):
+        u = urls[i]
+        if (m := rxl.match(u)) and len(m.groups()) == 1:
+            (u,) = m.groups()
+        elif (m := rxs.match(u)) and len(m.groups()) == 1:
+            (u,) = m.groups()
+        urls[i] = u
+    return urls
+
+
 if __name__ == "__main__":
     args = sys.argv[1:]
     if len(args) == 0:
@@ -53,4 +69,4 @@ if __name__ == "__main__":
         }
     ) as ytdl:
         ytdl.add_post_processor(AtempoPP(ratio=ratio))
-        ytdl.download(args)
+        ytdl.download(clean_urls(args))
