@@ -11,6 +11,10 @@ from yt_dlp.postprocessor.common import PostProcessor
 
 DEFAULT_RATIO = 1.4
 DEFAULT_OUTPUT = str(Path.home() / "Music/Podcasts/%(uploader)s/%(title)s.%(ext)s")
+DEFAULT_PLAYLIST_OUTPUT = str(
+    Path.home()
+    / "Music/Podcasts/%(uploader)s/%(playlist_title)s/%(playlist_index)0d %(title)s.%(ext)s"
+)
 
 
 class AtempoPP(PostProcessor):
@@ -52,8 +56,8 @@ def clean_urls(urls: list[str]) -> list[str]:
 
 
 if __name__ == "__main__":
-    args = sys.argv[1:]
-    if len(args) == 0:
+    urls = sys.argv[1:]
+    if len(urls) == 0:
         print(f"usage: {sys.argv[0]} URL...")
         sys.exit(1)
 
@@ -62,6 +66,17 @@ if __name__ == "__main__":
     except:
         ratio = DEFAULT_RATIO
 
+    if all(
+        re.match(
+            r"^(?:https:\/\/)?(?:www\.)?youtube.com\/playlist\?list=[-_0-9a-zA-Z]{18,34}",
+            u,
+        )
+        for u in urls
+    ):
+        DEFAULT_OUTPUT = DEFAULT_PLAYLIST_OUTPUT
+    else:
+        urls = clean_urls(urls)
+
     with YoutubeDL(
         params={
             "format": "ba",
@@ -69,4 +84,4 @@ if __name__ == "__main__":
         }
     ) as ytdl:
         ytdl.add_post_processor(AtempoPP(ratio=ratio))
-        ytdl.download(clean_urls(args))
+        ytdl.download(urls)
