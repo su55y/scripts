@@ -13,7 +13,7 @@ DEFAULT_RATIO = 1.4
 DEFAULT_OUTPUT = str(Path.home() / "Music/Podcasts/%(uploader)s/%(title)s.%(ext)s")
 DEFAULT_PLAYLIST_OUTPUT = str(
     Path.home()
-    / "Music/Podcasts/%(uploader)s/%(playlist_title)s/%(playlist_index)0d %(title)s.%(ext)s"
+    / "Music/Podcasts/%(uploader)s/%(playlist_title)s/%(playlist_index)d %(title)s.%(ext)s"
 )
 
 
@@ -83,5 +83,6 @@ if __name__ == "__main__":
             "outtmpl": os.environ.get("OUTPUT", DEFAULT_OUTPUT),
         }
     ) as ytdl:
-        ytdl.add_post_processor(AtempoPP(ratio=ratio))
+        if ratio != 1:
+            ytdl.add_post_processor(AtempoPP(ratio=ratio))
         ytdl.download(urls)
