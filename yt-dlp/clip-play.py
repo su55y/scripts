@@ -16,7 +16,7 @@ rx_url = re.compile(
     r".*youtube\.com\/watch\?v=([\w\d_\-]{11})|.*youtu\.be\/([\w\d_\-]{11})|.*twitch\.tv\/videos\/(\d{10})$"
 )
 rx_yt_url = re.compile(
-    r".*youtube\.com\/watch\?v=([\w\d_\-]{11})|.*youtu\.be\/([\w\d_\-]{11})"
+    r".*youtu(?:be\.com/watch\?v=|\.be/|be\.com/shorts/)[-_0-9a-zA-Z]{11}"
 )
 rx_yt_dlp_title = re.compile(r".*twitch\.tv\/videos\/\d{10}")
 

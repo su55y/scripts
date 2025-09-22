@@ -14,8 +14,8 @@ FFMPEG_CMD = """ffmpeg -hide_banner -loglevel warning -stats {y} {start} {to}
 FFMPEG_CMD_YT = """ffmpeg -hide_banner -loglevel warning -stats {y} {start} {to}
     -i {v_stream} {start} {to} -i {a_stream} {end} -map 0:v -map 1:a -avoid_negative_ts make_zero {output}"""
 
-YT_PATTERN = r".*youtube\.com/watch\?v=[-_0-9a-zA-Z]{11}|.*youtu\.be\/[-_0-9a-zA-Z]{11}"
-TW_PATTERN = r".*twitch\.tv\/videos\/\d{10}"
+YT_PATTERN = r".*youtu(?:be\.com/watch\?v=|\.be/|be\.com/shorts/)[-_0-9a-zA-Z]{11}"
+TW_PATTERN = r".*twitch\.tv/videos/\d{10}"
 YT_FMT_PAIR_PATTERN = r"^\d{2,3}\+\d{2,3}(?:\-\d+)?$"
 
 DEFAULT_RESOLUTION = "1280x720"
