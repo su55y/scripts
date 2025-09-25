@@ -50,7 +50,7 @@ is_twitch=0
 if echo "$url" | grep -qP '^(?:https\:\/\/)?(?:www\.)?twitch\.tv\/videos\/[0-9]{10}'; then
     is_twitch=1
 else
-    url_="$(echo "$url" | grep -oP '^(?:https://)?((?:www\.)?youtu(?:be\.com/watch\?v=|youtu\.be/|be\.com/shorts/))[-_0-9a-zA-z]{11}')"
+    url_="$(echo "$url" | grep -oP '^(?:https://)?((?:www\.)?youtu(?:be\.com/watch\?v=|\.be/|be\.com/shorts/))[-_0-9a-zA-z]{11}')"
     if [ -z "$url_" ]; then
         notify "invalid url '$url'"
         exit 1
