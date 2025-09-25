@@ -133,6 +133,7 @@ if __name__ == "__main__":
         notify("ERROR: invalid url %r" % url)
         exit(1)
 
+    title = ""
     if args.history_database:
         if not args.history_database.expanduser().exists():
             notify(f"{args.history_database} not exists")
@@ -140,5 +141,5 @@ if __name__ == "__main__":
         title = get_title(url) or url
         update_history(str(args.history_database), url, title)
 
-    notify("INFO: play %s" % url)
+    notify(title or url)
     run_mpv(url)
