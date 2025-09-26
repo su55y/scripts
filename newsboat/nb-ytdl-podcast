@@ -81,6 +81,11 @@ if __name__ == "__main__":
         params={
             "format": "ba",
             "outtmpl": os.environ.get("OUTPUT", DEFAULT_OUTPUT),
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["default", "-tv_simply"],
+                },
+            },
         }
     ) as ytdl:
         if ratio != 1:
