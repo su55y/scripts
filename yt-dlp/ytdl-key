@@ -8,16 +8,18 @@ die() {
 }
 
 DEFAULT_OUTPUT="$HOME/Videos/YouTube/%(uploader)s/%(title)s.%(ext)s"
+DEFAULT_PL_OUTPUT="$HOME/Videos/YouTube/%(uploader)s/%(playlist_title)s/%(playlist_index)d %(title)s.%(ext)s"
 HISTORY_DB="${XDG_DATA_HOME:-$HOME/.local/share}/playlist_ctl/playlist_ctl.db"
 
 show_help() {
     cat <<EOF
-Usage: $(basename "$0") [-u url] [-o output] [-O options] [-h] [-t] [-T options] [-H]
+Usage: $(basename "$0") [-u url] [-o output] [-O options] [-h] [-n] [-t] [-T options] [-H]
 
 Options:
   -u  url to download, can be optional if url present in clipboard
   -o  output path, optional (default: '$DEFAULT_OUTPUT')
   -O  yt-dlp options
+  -n  run now instead of task spooling
   -t  notify with video title instead of url
   -T  tsp options
   -H  log history to playlist-ctl compatible database
@@ -59,33 +61,48 @@ parse_args "$@"
 [ -n "$url" ] || url="$(xclip -o -selection clipboard)"
 [ -n "$url" ] || die 'no url passed'
 
-[ -n "$output" ] || output="$DEFAULT_OUTPUT"
-
 is_twitch=0
+is_playlist=0
 if echo "$url" | grep -qP '^(?:https\:\/\/)?(?:www\.)?twitch\.tv\/videos\/[0-9]{10}'; then
     is_twitch=1
+elif echo "$url" | grep -qP '^(?:https\:\/\/)?(?:www\.)?(youtube\.com\/playlist\?list=[A-Za-z0-9\-_]{18,34})'; then
+    is_playlist=1
 else
-    url_="$(echo "$url" | grep -oP '^(?:https://)?((?:www\.)?youtu(?:be\.com/watch\?v=|youtu\.be/|be\.com/shorts/))[-_0-9a-zA-z]{11}')"
+    url_="$(echo "$url" | grep -oP '^(?:https://)?((?:www\.)?youtu(?:be\.com/watch\?v=|\.be/|be\.com/shorts/))[-_0-9a-zA-z]{11}')"
     [ -z "$url_" ] && die "invalid url '$url'"
     url="$url_"
 fi
 
-fetch_title() {
+fetch_info() {
     curl -s "$(printf 'https://youtube.com/oembed?url=%s&format=json' "$url")" \
         -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:106.0) Gecko/20100101 Firefox/106.0' \
-        -H 'Accept-Language: en-US,en;q=0.5' | jq -r .title
+        -H 'Accept-Language: en-US,en;q=0.5'
 }
 
 if [ $is_twitch -eq 0 ] && [ $use_title -eq 1 ]; then
-    title="$(fetch_title)"
+    if [ $is_playlist -eq 0 ]; then
+        title="$(fetch_info | jq -r '"\(.author_name) - \(.title)"')"
+    else
+        title="$(fetch_info | jq -r .title)"
+    fi
+fi
+
+if [ -z "$output" ]; then
+    output="$DEFAULT_OUTPUT"
+    [ $is_playlist -eq 1 ] && output="$DEFAULT_PL_OUTPUT"
 fi
 
 [ -n "$title" ] || title="$url"
 
-notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "⬇️Start downloading '$title'..."
-qid="$(tsp $tsp_opts yt-dlp "$url" -o "$output" $ytdl_opts ||
-    notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "❌Download failed")"
-tsp -D "$qid" notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "✅Download done: '$title'"
+if [ "$is_now" -eq 1 ]; then
+    yt-dlp "$url" -o "$output" $ytdl_opts || die "❌Download failed: '$title'"
+else
+    notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "⬇️Start downloading '$title'..."
+    qid="$(tsp $tsp_opts yt-dlp "$url" -o "$output" $ytdl_opts ||
+        notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "❌Download failed")"
+    tsp -D "$qid" notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "✅Download done: '$title'"
+fi
+
 if [ "$use_history" -eq 1 ]; then
     sqlite3 "$HISTORY_DB" \
         "INSERT OR IGNORE INTO titles (url, title, created) \
