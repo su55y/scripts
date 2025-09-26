@@ -12,13 +12,14 @@ HISTORY_DB="${XDG_DATA_HOME:-$HOME/.local/share}/playlist_ctl/playlist_ctl.db"
 
 show_help() {
     cat <<EOF
-Usage: $(basename "$0") [-u url] [-o output] [-O options] [-h] [-t] [-H]
+Usage: $(basename "$0") [-u url] [-o output] [-O options] [-h] [-t] [-T options] [-H]
 
 Options:
   -u  url to download, can be optional if url present in clipboard
   -o  output path, optional (default: '$DEFAULT_OUTPUT')
   -O  yt-dlp options
   -t  notify with video title instead of url
+  -T  tsp options
   -H  log history to playlist-ctl compatible database
 EOF
 }
