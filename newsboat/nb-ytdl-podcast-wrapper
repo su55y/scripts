@@ -1,5 +1,8 @@
 #!/bin/sh
 
+: "${TSP_OPTS}"
+: "${RATIO=1.5}"
+
 url="$1"
 if [ -z "$url" ]; then
     notify-send -i newsboat -a "$(basename $0)" 'Url not passed'
@@ -12,5 +15,5 @@ if ! command -v nb-ytdl-podcast >/dev/null 2>&1; then
 fi
 
 notify-send -i newsboat -a newsboat "⬇️Queuing download '$url'..."
-qid="$(RATIO=1.5 tsp nb-ytdl-podcast "$url")"
+qid="$(RATIO=$RATIO tsp $TSP_OPTS nb-ytdl-podcast "$url")"
 tsp -n -D "$qid" notify-send -i newsboat -a "$(basename $0)" "✅Download done: '$url'" >/dev/null
