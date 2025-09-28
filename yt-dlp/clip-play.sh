@@ -7,7 +7,7 @@ title=
 use_title=0
 url="$(xclip -o -selection clipboard)"
 
-notify() { notify-send -a clip-play "$1"; }
+notify() { notify-send -a $(basename "$0") "$1"; }
 
 if [ -z "$url" ]; then
     notify 'no url in clipboard'
