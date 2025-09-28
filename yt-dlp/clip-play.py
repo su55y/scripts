@@ -12,6 +12,9 @@ import time
 from typing import Dict
 
 APP_NAME = os.path.basename(__file__)
+POLLING_TIMEOUT = int(os.environ.get("POLLING_TIMEOUT", 15))
+POLLING_INTERVAL = int(os.environ.get("POLLING_INTERVAL", 1))
+
 rx_url = re.compile(
     r".*youtube\.com\/watch\?v=([\w\d_\-]{11})|.*youtu\.be\/([\w\d_\-]{11})|.*twitch\.tv\/videos\/(\d{10})$"
 )
@@ -60,12 +63,12 @@ def run_mpv(url):
     except Exception as e:
         notify("ERROR: %s" % e)
         exit(1)
-    else:
-        for _ in range(25):
-            time.sleep(1)
-            if isinstance(p.poll(), int) and p.returncode != 0:
-                notify("ERROR: mpv return status %d" % p.returncode)
-                exit(1)
+    for _ in range(0, POLLING_TIMEOUT, POLLING_INTERVAL):
+        time.sleep(POLLING_INTERVAL)
+        if p.poll() is not None:
+            if p.returncode != 0:
+                notify("ERROR: mpv exit code %d" % p.returncode)
+            break
 
 
 def fetch_title(url):
