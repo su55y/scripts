@@ -26,11 +26,6 @@ def parse_agrs() -> argparse.Namespace:
         r"^(\d+|\d:[0-5]\d|[0-5]?\d:[0-5]\d|\d+:[0-5]\d:[0-5]\d)$"
     )
 
-    def validate_url(url: str) -> str | None:
-        if not re.match(TW_PATTERN, url) and not re.match(YT_PATTERN, url):
-            raise argparse.ArgumentTypeError("invalid url %r" % url)
-        return url
-
     def validate_timestamp(timestamp: str | None = None) -> str | None:
         if timestamp is not None and not rx_timestamp.match(timestamp):
             raise argparse.ArgumentTypeError("invalid timestamp %r" % timestamp)
@@ -45,7 +40,7 @@ def parse_agrs() -> argparse.Namespace:
         prog="clipmaker",
         description="Download clips from YouTube or Twitch",
     )
-    parser.add_argument("url", type=validate_url, metavar="URL")
+    parser.add_argument("url", metavar="URL")
     parser.add_argument(
         "-s",
         "--start",
@@ -169,9 +164,7 @@ class Clipmaker:
         if not self.resolution:
             self.resolution = DEFAULT_RESOLUTION
         for f in self.formats_map.values():
-            if not f.get("vcodec") or not f.get("acodec"):
-                continue
-            if f.get("resolution") == self.resolution:
+            if f.get("resolution") == self.resolution and f.get("acodec") is not None:
                 return f["url"]
         else:
             exit(f"resolution {self.resolution!r} not found")
