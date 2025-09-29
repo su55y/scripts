@@ -121,22 +121,25 @@ class Clipmaker:
         url = v_url = a_url = ""
         ffmpeg_cmd = FFMPEG_CMD
 
-        if self.choose:
+        def choose():
+            nonlocal url, v_url, a_url
             self.print_formats_table()
             while True:
                 inp = input("choose format: ")
-                if re.match(r"^\d+p?$", inp) and inp in self.formats_map:
-                    url = self.formats_map[inp]["url"]
-                    break
-                elif re.match(YT_FMT_PAIR_PATTERN, inp):
+                if re.match(YT_FMT_PAIR_PATTERN, inp):
                     v, a = inp.split("+")
                     if self.check_formats_pair(v, a):
                         v_url = self.formats_map[v]["url"]
                         a_url = self.formats_map[a]["url"]
                         break
+                elif inp in self.formats_map:
+                    url = self.formats_map[inp]["url"]
+                    break
                 else:
                     print(f"invalid format {inp!r}")
 
+        if self.choose:
+            choose()
         elif not re.match(YT_PATTERN, self.url) or (
             self.format and not re.match(YT_FMT_PAIR_PATTERN, self.format)
         ):
@@ -144,6 +147,9 @@ class Clipmaker:
         else:
             ffmpeg_cmd = FFMPEG_CMD_YT
             v_url, a_url = self.get_yt_streams()
+
+        if len(url + v_url + a_url) == 0:
+            choose()
 
         return ffmpeg_cmd.format(
             y="-y" if self.force else "",
@@ -167,7 +173,8 @@ class Clipmaker:
             if f.get("resolution") == self.resolution and f.get("acodec") is not None:
                 return f["url"]
         else:
-            exit(f"resolution {self.resolution!r} not found")
+            print(f"resolution {self.resolution!r} not found")
+            return ""
 
     def get_yt_streams(self) -> tuple[str, str]:
         _ = self.formats_map
