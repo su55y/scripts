@@ -66,7 +66,8 @@ def parse_agrs() -> argparse.Namespace:
         "-r",
         "--resolution",
         type=validate_resolution,
-        help=f"clip resolution (default: {DEFAULT_RESOLUTION!r})",
+        default=DEFAULT_RESOLUTION,
+        help=f"clip resolution (default: %(default)s)",
     )
     parser.add_argument(
         "-o",
@@ -144,6 +145,8 @@ class Clipmaker:
             self.format and not re.match(YT_FMT_PAIR_PATTERN, self.format)
         ):
             url = self.get_stream()
+        elif self.resolution and (purl := self.premuxed_url()):
+            url = purl
         else:
             ffmpeg_cmd = FFMPEG_CMD_YT
             v_url, a_url = self.get_yt_streams()
@@ -167,8 +170,6 @@ class Clipmaker:
             if f := self.formats_map.get(self.format):
                 return f["url"]
             print(f"format {self.format!r} not found")
-        if not self.resolution:
-            self.resolution = DEFAULT_RESOLUTION
         for f in self.formats_map.values():
             if f.get("resolution") == self.resolution and f.get("acodec") is not None:
                 return f["url"]
@@ -227,6 +228,15 @@ class Clipmaker:
                 print(f"format {f!r} not found")
                 return False
         return True
+
+    def premuxed_url(self) -> str | None:
+        for f in self.formats_map.values():
+            if (
+                f.get("vcodec")
+                and f.get("acodec")
+                and f.get("resolution") == self.resolution
+            ):
+                return f.get("url")
 
 
 def filter_format(formats: dict[str, Any]) -> bool:
