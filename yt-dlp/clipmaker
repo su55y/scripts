@@ -36,11 +36,20 @@ def parse_agrs() -> argparse.Namespace:
             raise argparse.ArgumentTypeError("invalid resolution %r" % resolution)
         return resolution
 
+    def clean_url(u: str) -> str:
+        rxl = r"^((?:https:\/\/)?(?:www\.)?youtube\.com\/watch\?v=[-_0-9a-zA-Z]{11})(?:&.+)?$"
+        rxs = r"^((?:https\:\/\/)?youtu\.be\/[-_0-9a-zA-Z]{11})(?:\?.+)?$"
+        if (m := re.match(rxl, u)) and len(m.groups()) == 1:
+            (u,) = m.groups()
+        elif (m := re.match(rxs, u)) and len(m.groups()) == 1:
+            (u,) = m.groups()
+        return u
+
     parser = argparse.ArgumentParser(
         prog="clipmaker",
         description="Download clips from YouTube or Twitch",
     )
-    parser.add_argument("url", metavar="URL")
+    parser.add_argument("url", metavar="URL", type=clean_url)
     parser.add_argument(
         "-s",
         "--start",
