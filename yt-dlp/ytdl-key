@@ -33,21 +33,23 @@ use_title=0
 use_history=0
 ytdl_opts=""
 tsp_opts=""
+is_now=0
 
 parse_args() {
     OPTIND=1
-    while getopts "u:o:O:T:Hht" opt; do
+    while getopts "u:o:O:T:Hhnt" opt; do
         case "$opt" in
+        H) use_history=1 ;;
+        O) ytdl_opts=$OPTARG ;;
+        T) tsp_opts=$OPTARG ;;
         h)
             show_help
             exit 0
             ;;
-        u) url=$OPTARG ;;
+        n) is_now=1 ;;
         o) output=$OPTARG ;;
         t) use_title=1 ;;
-        H) use_history=1 ;;
-        O) ytdl_opts=$OPTARG ;;
-        T) tsp_opts=$OPTARG ;;
+        u) url=$OPTARG ;;
         *) exit 1 ;;
         esac
     done
@@ -94,11 +96,11 @@ fi
 
 [ -n "$title" ] || title="$url"
 
-if [ "$is_now" -eq 1 ]; then
-    yt-dlp "$url" -o "$output" $ytdl_opts || die "❌Download failed: '$title'"
+if [ $is_now -eq 1 ]; then
+    yt-dlp $ytdl_opts "$url" -o "$output" || die "❌Download failed: '$title'"
 else
     notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "⬇️Start downloading '$title'..."
-    qid="$(tsp $tsp_opts yt-dlp "$url" -o "$output" $ytdl_opts ||
+    qid="$(tsp $tsp_opts yt-dlp $ytdl_opts "$url" -o "$output" ||
         notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "❌Download failed")"
     tsp -D "$qid" notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "✅Download done: '$title'"
 fi
