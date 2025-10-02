@@ -243,6 +243,7 @@ class Clipmaker:
             if (
                 f.get("vcodec")
                 and f.get("acodec")
+                and f.get("acodec") != "none"
                 and f.get("resolution") == self.resolution
             ):
                 return f.get("url")
