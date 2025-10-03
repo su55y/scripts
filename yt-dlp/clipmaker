@@ -254,7 +254,11 @@ class Clipmaker:
     def parse_url(self) -> None:
         params = parse_qs(urlparse(self.url).query)
         if "t" in params:
-            self.start = params["t"][0]
+            t = params["t"][0]
+            if "twitch.tv/" in self.url:
+                self.start = t.replace("h", ":").replace("m", ":").replace("s", "")
+            else:
+                self.start = t
 
 
 def filter_format(formats: dict[str, Any]) -> bool:
