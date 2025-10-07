@@ -1,7 +1,11 @@
 #!/usr/bin/env -S python -u
 
 import argparse
+import datetime as dt
 from functools import cached_property
+import json
+import os
+from pathlib import Path
 import re
 import subprocess
 import time
@@ -20,6 +24,11 @@ TW_PATTERN = r".*twitch\.tv/videos/\d{10}"
 YT_FMT_PAIR_PATTERN = r"^\d{2,3}\+\d{2,3}(?:\-\d+)?$"
 
 DEFAULT_RESOLUTION = "1280x720"
+CACHE_HOME = (
+    Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "clipmaker"
+)
+if not CACHE_HOME.exists():
+    CACHE_HOME.mkdir(exist_ok=True)
 
 
 def parse_agrs() -> argparse.Namespace:
@@ -129,6 +138,7 @@ class Clipmaker:
         self.to = to
         self.resolution = resolution
         self.format_id: str = ""
+        self.is_yt = "youtu.be/" in self.url or "youtube.com" in self.url
 
     def build_cmd(self) -> str:
         url = v_url = a_url = ""
@@ -220,6 +230,8 @@ class Clipmaker:
 
     @cached_property
     def formats_map(self) -> dict[str, Any]:
+        if (c := self.read_cache()) and not self.cache_expired:
+            return c
         with YoutubeDL() as ydl:
             info = ydl.extract_info(self.url, download=False)
             if not info or not isinstance(info, dict):
@@ -228,7 +240,19 @@ class Clipmaker:
                 exit("can't get formats from info")
 
             self.format_id = info.get("format_id", "")
-            return {f["format_id"]: f for f in filter(filter_format, info["formats"])}
+            fm = {
+                f["format_id"]: {
+                    "format_id": f["format_id"],
+                    "url": f["url"],
+                    "resolution": f["resolution"],
+                    "ext": f["ext"],
+                    "vcodec": f["vcodec"],
+                    "acodec": f["acodec"],
+                }
+                for f in filter(filter_format, info["formats"])
+            }
+            self.write_cache(fm)
+            return fm
 
     def print_formats_table(self) -> None:
         with YoutubeDL() as ydl:
@@ -259,6 +283,35 @@ class Clipmaker:
                 self.start = t.replace("h", ":").replace("m", ":").replace("s", "")
             else:
                 self.start = t
+
+    @cached_property
+    def cache_file(self) -> Path:
+        id_ = None
+        if m := re.match(
+            r".*youtu(\.be/|be\.com/watch\?v=|be\.com/shorts/)([-_0-9a-zA-Z]{11})",
+            self.url,
+        ):
+            _, id_ = m.groups()
+        elif m := re.match(r".*twitch\.tv/videos/(\d{10})", self.url):
+            (id_,) = m.groups()
+        else:
+            id_ = self.url
+        return CACHE_HOME / id_.replace("/", "")
+
+    @property
+    def cache_expired(self) -> bool:
+        if self.is_yt and self.cache_file.exists():
+            d = dt.datetime.fromtimestamp(self.cache_file.stat().st_ctime)
+            return d < dt.datetime.now() - dt.timedelta(hours=5)
+        return False
+
+    def read_cache(self) -> dict[str, Any] | None:
+        if self.cache_file.exists():
+            return json.load(self.cache_file.open())
+
+    def write_cache(self, info: dict[str, Any]):
+        with open(self.cache_file, "w") as f:
+            json.dump(info, f)
 
 
 def filter_format(formats: dict[str, Any]) -> bool:
