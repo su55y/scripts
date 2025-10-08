@@ -1,0 +1,65 @@
+#!/bin/sh
+
+input=
+start=
+duration=
+to_pos=
+output="clip$(date +%s).mp4"
+
+show_help() {
+    cat <<EOF
+usage: $(basename "$0") [-d DURATION] [-i INPUT] [-s START] [-t TO] [-o OUTPUT]
+
+-d duration timestamp
+-i input file (required)
+-s start timestamp
+-t to position timestamp
+-o output file (default: $output)
+EOF
+}
+
+parse_args() {
+    OPTIND=1
+    while getopts 'i:d:o:s:t:' opt; do
+        case $opt in
+        i) input=$OPTARG ;;
+        d) duration=$OPTARG ;;
+        o) output=$OPTARG ;;
+        s) start=$OPTARG ;;
+        t) to_pos=$OPTARG ;;
+        *)
+            show_help
+            exit 0
+            ;;
+        esac
+    done
+
+    shift $((OPTIND - 1))
+    [ "${1:-}" = '--' ] && shift
+}
+
+parse_args "$@"
+if [ -z "$input" ]; then
+    show_help
+    exit 1
+fi
+
+[ -n "${start}${duration}${to_pos}" ] || exit 0
+
+cmd='ffmpeg -hide_banner -loglevel warning -stats'
+if [ -n "$start" ]; then
+    cmd="$cmd -ss $start"
+fi
+cmd="$cmd -i '$input'"
+if [ -n "$duration" ]; then
+    cmd="$cmd -t $duration"
+elif [ -n "$to_pos" ]; then
+    cmd="$cmd -to $to_pos"
+fi
+cmd="$cmd -c copy $output"
+printf "%s\nExecute it? [Y/n]: " "$cmd"
+read -r answ
+case $answ in
+n* | N*) exit 0 ;;
+esac
+eval "$cmd"
