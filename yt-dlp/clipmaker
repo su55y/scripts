@@ -230,8 +230,9 @@ class Clipmaker:
 
     @cached_property
     def formats_map(self) -> dict[str, Any]:
-        if (c := self.read_cache()) and not self.cache_expired:
-            return c
+        if c := self.read_cache():
+            if not self.is_yt or not self.is_expired(c):
+                return c
         with YoutubeDL() as ydl:
             info = ydl.extract_info(self.url, download=False)
             if not info or not isinstance(info, dict):
@@ -298,13 +299,6 @@ class Clipmaker:
             id_ = self.url
         return CACHE_HOME / id_.replace("/", "")
 
-    @property
-    def cache_expired(self) -> bool:
-        if self.is_yt and self.cache_file.exists():
-            d = dt.datetime.fromtimestamp(self.cache_file.stat().st_ctime)
-            return d < dt.datetime.now() - dt.timedelta(hours=5)
-        return False
-
     def read_cache(self) -> dict[str, Any] | None:
         if self.cache_file.exists():
             return json.load(self.cache_file.open())
@@ -312,6 +306,19 @@ class Clipmaker:
     def write_cache(self, info: dict[str, Any]):
         with open(self.cache_file, "w") as f:
             json.dump(info, f)
+
+    def is_expired(self, d: dict[str, dict]) -> bool:
+        try:
+            (f, *_) = d.values()
+            m = re.search(r"expire=(\d{10})", f["url"])
+            if not m or len(m.groups()) != 1:
+                return True
+            return (
+                dt.datetime.fromtimestamp(float(m.groups()[0]))
+                + dt.timedelta(minutes=1)
+            ) < dt.datetime.now()
+        except:
+            return True
 
 
 def filter_format(formats: dict[str, Any]) -> bool:
