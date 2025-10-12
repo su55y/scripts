@@ -140,7 +140,7 @@ class Clipmaker:
         self.format = format
         self.start = start
         if not self.start:
-            self.parse_url()
+            self.parse_timestamp()
         self.duration = duration
         self.to = to
         self.resolution = resolution
@@ -239,7 +239,7 @@ class Clipmaker:
     @cached_property
     def formats_map(self) -> dict[str, Any]:
         if not self.overwrite_cache and (c := self.read_cache()):
-            if not self.is_yt or not self.is_expired(c):
+            if not self.is_yt or not is_format_expired(c):
                 return c
         with YoutubeDL() as ydl:
             info = ydl.extract_info(self.url, download=False)
@@ -284,7 +284,7 @@ class Clipmaker:
             ):
                 return f.get("url")
 
-    def parse_url(self) -> None:
+    def parse_timestamp(self) -> None:
         params = parse_qs(urlparse(self.url).query)
         if "t" in params:
             t = params["t"][0]
@@ -315,18 +315,17 @@ class Clipmaker:
         with open(self.cache_file, "w") as f:
             json.dump(info, f)
 
-    def is_expired(self, d: dict[str, dict]) -> bool:
-        try:
-            (f, *_) = d.values()
-            m = re.search(r"expire=(\d{10})", f["url"])
-            if not m or len(m.groups()) != 1:
-                return True
-            return (
-                dt.datetime.fromtimestamp(float(m.groups()[0]))
-                + dt.timedelta(minutes=1)
-            ) < dt.datetime.now()
-        except:
+
+def is_format_expired(d: dict[str, dict]) -> bool:
+    try:
+        (f, *_) = d.values()
+        m = re.search(r"expire=(\d{10})", f["url"])
+        if not m or len(m.groups()) != 1:
             return True
+        expired_at = dt.datetime.fromtimestamp(float(m.groups()[0])) + dt.timedelta(minutes=1)
+        return expired_at < dt.datetime.now()
+    except:
+        return True
 
 
 def filter_format(formats: dict[str, Any]) -> bool:
