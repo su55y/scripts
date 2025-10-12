@@ -109,6 +109,12 @@ def parse_agrs() -> argparse.Namespace:
         "--format",
         help=f"formats pair string",
     )
+    parser.add_argument(
+        "-O",
+        "--overwrite-cache",
+        action="store_true",
+        help="overwrite cached video info if exists",
+    )
     return parser.parse_args()
 
 
@@ -120,6 +126,7 @@ class Clipmaker:
         output: str,
         choose: bool = False,
         force: bool = False,
+        overwrite_cache: bool = False,
         format: str | None = None,
         start: str | None = None,
         duration: str | None = None,
@@ -139,6 +146,7 @@ class Clipmaker:
         self.resolution = resolution
         self.format_id: str = ""
         self.is_yt = "youtu.be/" in self.url or "youtube.com" in self.url
+        self.overwrite_cache = overwrite_cache
 
     def build_cmd(self) -> str:
         url = v_url = a_url = ""
@@ -230,7 +238,7 @@ class Clipmaker:
 
     @cached_property
     def formats_map(self) -> dict[str, Any]:
-        if c := self.read_cache():
+        if not self.overwrite_cache and (c := self.read_cache()):
             if not self.is_yt or not self.is_expired(c):
                 return c
         with YoutubeDL() as ydl:
