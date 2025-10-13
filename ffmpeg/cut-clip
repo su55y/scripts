@@ -1,17 +1,20 @@
 #!/bin/sh
+# shellcheck disable=SC2046
 
 input=
 start=
 duration=
 to_pos=
+ratio=
 output="clip$(date +%s).mp4"
 
 show_help() {
     cat <<EOF
-usage: $(basename "$0") [-d DURATION] [-i INPUT] [-s START] [-t TO] [-o OUTPUT]
+usage: $(basename "$0") [-d DURATION] [-i INPUT] [-r RATIO] [-s START] [-t TO] [-o OUTPUT]
 
 -d duration timestamp
 -i input file (required)
+-r ratio (0.5-2.0)
 -s start timestamp
 -t to position timestamp
 -o output file (default: $output)
@@ -20,11 +23,18 @@ EOF
 
 parse_args() {
     OPTIND=1
-    while getopts 'i:d:o:s:t:' opt; do
+    while getopts 'i:d:o:r:s:t:' opt; do
         case $opt in
         i) input=$OPTARG ;;
         d) duration=$OPTARG ;;
         o) output=$OPTARG ;;
+        r)
+            ratio=$OPTARG
+            if [ $(echo "$ratio >= 0.5 && $ratio <= 2.0" | bc -l) -ne 1 ]; then
+                echo "Invalid ratio '$ratio', should be in range 0.5-2.0"
+                exit 1
+            fi
+            ;;
         s) start=$OPTARG ;;
         t) to_pos=$OPTARG ;;
         *)
@@ -44,19 +54,54 @@ if [ -z "$input" ]; then
     exit 1
 fi
 
-[ -n "${start}${duration}${to_pos}" ] || exit 0
+[ -n "${start}${duration}${to_pos}${ratio}" ] || exit 0
 
 cmd='ffmpeg -hide_banner -loglevel warning -stats'
 if [ -n "$start" ]; then
     cmd="$cmd -ss $start"
 fi
+
 cmd="$cmd -i '$input'"
 if [ -n "$duration" ]; then
     cmd="$cmd -t $duration"
 elif [ -n "$to_pos" ]; then
     cmd="$cmd -to $to_pos"
 fi
-cmd="$cmd -c copy $output"
+
+if [ -n "$ratio" ]; then
+    probe="$(ffprobe -v quiet -show_streams -of json "$input")"
+    if [ $? -ne 0 ]; then
+        echo 'Probe failed'
+        exit 1
+    fi
+
+    has_video=0
+    if echo "$probe" | grep -q '"codec_type": "video"'; then
+        has_video=1
+    fi
+
+    has_audio=0
+    if echo "$probe" | grep -q '"codec_type": "audio"'; then
+        has_audio=1
+    fi
+
+    if [ $has_video -eq 1 ] && [ $has_audio -eq 1 ]; then
+        filter="-filter_complex '[0:v]setpts=PTS/${ratio}[v];[0:a]atempo=${ratio}[a]' -map [v] -map [a]"
+    elif [ $has_video -eq 1 ]; then
+        filter="-filter:v setpts=PTS/$ratio"
+    elif [ $has_audio -eq 1 ]; then
+        filter="-filter:a atempo=$ratio"
+    else
+        echo "No video or audio streams found in '$input'"
+        exit 1
+    fi
+    cmd="$cmd $filter"
+else
+    cmd="$cmd -c copy"
+fi
+
+cmd="$cmd $output"
+
 printf "%s\nExecute it? [Y/n]: " "$cmd"
 read -r answ
 case $answ in
