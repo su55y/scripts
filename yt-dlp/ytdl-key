@@ -67,10 +67,10 @@ is_twitch=0
 is_playlist=0
 if echo "$url" | grep -qP '^(?:https\:\/\/)?(?:www\.)?twitch\.tv\/videos\/[0-9]{10}'; then
     is_twitch=1
-elif echo "$url" | grep -qP '^(?:https\:\/\/)?(?:www\.)?(youtube\.com\/playlist\?list=[A-Za-z0-9\-_]{18,34})'; then
+elif echo "$url" | grep -qP '^(?:https\:\/\/)?(?:www\.)?(?:music\.)?(youtube\.com\/playlist\?list=[A-Za-z0-9\-_]{18,34})'; then
     is_playlist=1
 else
-    url_="$(echo "$url" | grep -oP '^(?:https://)?((?:www\.)?youtu(?:be\.com/watch\?v=|\.be/|be\.com/shorts/))[-_0-9a-zA-z]{11}')"
+    url_="$(echo "$url" | grep -oP '^(?:https://)?((?:www\.)?(?:music\.)?youtu(?:be\.com/watch\?v=|\.be/|be\.com/shorts/))[-_0-9a-zA-z]{11}')"
     [ -z "$url_" ] && die "invalid url '$url'"
     url="$url_"
 fi
