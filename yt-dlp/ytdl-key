@@ -76,8 +76,9 @@ elif echo "$url" | grep -qP '^(?:https\:\/\/)?(?:www\.)?music\.youtube\.com\/wat
     echo "$ytdl_opts" | grep -qE -- '--no-playlist' || ytdl_opts="$ytdl_opts --no-playlist"
     echo "$ytdl_opts" | grep -qE -- '-f [^ ]+' || ytdl_opts="$ytdl_opts -f ba"
 else
-    url_="$(echo "$url" | grep -oP '^(?:https://)?((?:www\.)?(?:music\.)?youtu(?:be\.com/watch\?v=|\.be/|be\.com/shorts/))[-_0-9a-zA-z]{11}')"
+    url_="$(echo "$url" | grep -oP '^(?:https://)?((?:www\.)?(?:music\.)?youtu(?:be\.com/watch\?(?:.*)v=|\.be/|be\.com/shorts/))[-_0-9a-zA-z]{11}')"
     [ -z "$url_" ] && die "invalid url '$url'"
+    echo "$ytdl_opts" | grep -qE -- '--no-playlist' || ytdl_opts="$ytdl_opts --no-playlist"
     url="$url_"
 fi
 
