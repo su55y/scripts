@@ -10,7 +10,7 @@ output="clip$(date +%s).mp4"
 
 show_help() {
     cat <<EOF
-usage: $(basename "$0") [-d DURATION] [-i INPUT] [-r RATIO] [-s START] [-t TO] [-o OUTPUT]
+usage: $(basename "$0") [-d T] [-i FILE] [-r FLOAT] [-s T] [-t T] [-o FILE]
 
 -d duration timestamp
 -i input file (required)
