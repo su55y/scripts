@@ -10,7 +10,7 @@ import re
 import subprocess
 import time
 from typing import Any
-from urllib.parse import urlparse, parse_qs
+import urllib.parse as urlp
 
 from yt_dlp import YoutubeDL
 
@@ -19,8 +19,6 @@ FFMPEG_CMD = """ffmpeg -hide_banner -loglevel warning -stats {y} {start} {to}
 FFMPEG_CMD_YT = """ffmpeg -hide_banner -loglevel warning -stats {y} {start} {to}
     -i {v_stream} {start} {to} -i {a_stream} {end} -map 0:v -map 1:a -avoid_negative_ts make_zero {output}"""
 
-YT_PATTERN = r".*youtu(?:be\.com/watch\?v=|\.be/|be\.com/shorts/)[-_0-9a-zA-Z]{11}"
-TW_PATTERN = r".*twitch\.tv/videos/\d{10}"
 YT_FMT_PAIR_PATTERN = r"^\d{2,3}\+\d{2,3}(?:\-\d+)?$"
 
 DEFAULT_RESOLUTION = "1280x720"
@@ -46,20 +44,11 @@ def parse_agrs() -> argparse.Namespace:
             raise argparse.ArgumentTypeError("invalid resolution %r" % resolution)
         return resolution
 
-    def clean_url(u: str) -> str:
-        rxl = r"^((?:https://)?(?:www\.)?youtube\.com/watch\?v=[-_0-9a-zA-Z]{11})(?:(?:.*)?(&t=[0-9]+)(?:.*)?)?$"
-        rxs = r"^((?:https://)?youtu\.be/[-_0-9a-zA-Z]{11})(?:(\?)(?:.*)?(t=[0-9]+)(?:.*)?)?$"
-        if (m := re.match(rxl, u)) and len(m.groups()) > 0:
-            u = "".join(g for g in m.groups() if g)
-        elif (m := re.match(rxs, u)) and len(m.groups()) > 0:
-            u = "".join(g for g in m.groups() if g)
-        return u
-
     parser = argparse.ArgumentParser(
         prog="clipmaker",
         description="Download clips from YouTube or Twitch",
     )
-    parser.add_argument("url", metavar="URL", type=clean_url)
+    parser.add_argument("url", metavar="URL")
     parser.add_argument(
         "-s",
         "--start",
@@ -133,19 +122,17 @@ class Clipmaker:
         to: str | None = None,
         resolution: str | None = None,
     ) -> None:
-        self.url = url
+        self.start = start
+        self.is_yt = False
+        self.url = self._clean_url(url)
         self.output = output
         self.choose = choose
         self.force = force
         self.format = format
-        self.start = start
-        if not self.start:
-            self.parse_timestamp()
         self.duration = duration
         self.to = to
         self.resolution = resolution
         self.format_id: str = ""
-        self.is_yt = "youtu.be/" in self.url or "youtube.com" in self.url
         self.overwrite_cache = overwrite_cache
 
     def build_cmd(self) -> str:
@@ -171,7 +158,7 @@ class Clipmaker:
 
         if self.choose:
             choose()
-        elif not re.match(YT_PATTERN, self.url) or (
+        elif not self.is_yt or (
             self.format and not re.match(YT_FMT_PAIR_PATTERN, self.format)
         ):
             url = self.get_stream()
@@ -284,14 +271,34 @@ class Clipmaker:
             ):
                 return f.get("url")
 
-    def parse_timestamp(self) -> None:
-        params = parse_qs(urlparse(self.url).query)
-        if "t" in params:
-            t = params["t"][0]
-            if "twitch.tv/" in self.url:
+    def _clean_url(self, url: str) -> str:
+        u = urlp.urlparse(url)
+        if u.hostname is None:
+            raise ValueError(f"Invalid url {url!r}")
+        if u.hostname.endswith("youtu.be") or u.hostname.endswith("youtube.com"):
+            self.is_yt = True
+        elif not u.hostname.endswith("twitch.tv"):
+            return url
+
+        params = {
+            k: v[0]
+            for k, v in urlp.parse_qs(u.query).items()
+            if k in ("v", "t") and len(v) == 1
+        }
+
+        if u.hostname.endswith("youtube.com") and not "v" in params:
+            raise ValueError(f"Invalid url {self.url!r}")
+
+        if self.start is None and "t" in params:
+            t = params["t"]
+            if u.hostname.endswith("twitch.tv"):
                 self.start = t.replace("h", ":").replace("m", ":").replace("s", "")
             else:
                 self.start = t
+
+        return urlp.urlunparse(
+            (u.scheme, u.netloc, u.path, u.params, urlp.urlencode(params), u.fragment)
+        )
 
     @cached_property
     def cache_file(self) -> Path:
@@ -322,7 +329,9 @@ def is_format_expired(d: dict[str, dict]) -> bool:
         m = re.search(r"expire=(\d{10})", f["url"])
         if not m or len(m.groups()) != 1:
             return True
-        expired_at = dt.datetime.fromtimestamp(float(m.groups()[0])) + dt.timedelta(minutes=1)
+        expired_at = dt.datetime.fromtimestamp(float(m.groups()[0])) + dt.timedelta(
+            minutes=1
+        )
         return expired_at < dt.datetime.now()
     except:
         return True
