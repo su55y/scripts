@@ -32,6 +32,7 @@ class AtempoPP(PostProcessor):
             "-y",
             "-i",
             str(input_file),
+            "-vn",
             "-filter:a",
             f"atempo={self.__ratio}",
             str(output_file),
@@ -79,12 +80,13 @@ if __name__ == "__main__":
 
     with YoutubeDL(
         params={
-            "format": "ba",
+            "format": "ba/w*[acodec!=none]",
             "outtmpl": os.environ.get("OUTPUT", DEFAULT_OUTPUT),
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["default", "-tv_simply"],
-                },
+                    "player_client": ["default", "web_safari"],
+                    "player_js_version": ["actual"],
+                }
             },
         }
     ) as ytdl:
