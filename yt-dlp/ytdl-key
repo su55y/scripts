@@ -114,6 +114,7 @@ else
 fi
 
 if [ "$use_history" -eq 1 ]; then
+    title="$(echo "$title" | sed "s/'//g")"
     sqlite3 "$HISTORY_DB" \
         "INSERT OR IGNORE INTO titles (url, title, created) \
         VALUES ('$url', '$title', '$(date -Ins)');"
