@@ -1,17 +1,19 @@
 #!/bin/sh
-# shellcheck disable=SC2046
+# shellcheck disable=SC2046,SC2086,SC2181
 
 input=
 start=
 duration=
 to_pos=
 ratio=
+chapters=
 output="clip$(date +%s).mp4"
 
 show_help() {
     cat <<EOF
-usage: $(basename "$0") [-d T] [-i FILE] [-r FLOAT] [-s T] [-t T] [-o FILE]
+usage: $(basename "$0") [-c C] [-d T] [-i FILE] [-r FLOAT] [-s T] [-t T] [-o FILE]
 
+-c chapters range
 -d duration timestamp
 -i input file (required)
 -r ratio (0.5-2.0)
@@ -23,10 +25,11 @@ EOF
 
 parse_args() {
     OPTIND=1
-    while getopts 'i:d:o:r:s:t:' opt; do
+    while getopts 'c:d:i:o:r:s:t:' opt; do
         case $opt in
-        i) input=$OPTARG ;;
+        c) chapters=$OPTARG ;;
         d) duration=$OPTARG ;;
+        i) input=$OPTARG ;;
         o) output=$OPTARG ;;
         r)
             ratio=$OPTARG
@@ -54,7 +57,67 @@ if [ -z "$input" ]; then
     exit 1
 fi
 
-[ -n "${start}${duration}${to_pos}${ratio}" ] || exit 0
+[ -n "${start}${duration}${to_pos}${ratio}${chapters}" ] || exit 0
+
+if [ -n "$chapters" ]; then
+
+    c_start="${chapters%%..*}"
+    [ -z "$c_start" ] && c_start=1
+    c_to="${chapters##*..}"
+    [ -z "$c_to" ] && c_to=0
+
+    if [ -z "${c_start}${c_to}" ]; then
+        echo "Invalid chapters range '$chapters'"
+        exit 1
+    fi
+
+    tmp_file=$(mktemp -t metadata.XXXXXXXXX)
+    cleanup() {
+        [ -f "$tmp_file" ] && rm -v "$tmp_file"
+    }
+    trap cleanup EXIT
+
+    ffmpeg -y -i "$input" -f ffmetadata "$tmp_file" 2>/dev/null || {
+        echo "FFMPEG ERROR!"
+        exit 1
+    }
+
+    is_header_done=0
+    chapter_num=0
+    timebase=
+
+    while read -r line; do
+        if [ "$line" = '[CHAPTER]' ]; then
+            is_header_done=1
+            chapter_num=$((chapter_num + 1))
+            continue
+        elif [ $is_header_done -eq 0 ]; then
+            continue
+        fi
+
+        case $line in
+        TIMEBASE=1/*)
+            if [ -z "$timebase" ]; then
+                timebase="${line##*/}"
+            fi
+            ;;
+        START=*)
+            if [ $c_start -eq $chapter_num ]; then
+                start_="${line##*=}"
+                start=$((start_ / timebase))
+            fi
+            ;;
+        END=*)
+            if [ $c_to -eq $chapter_num ]; then
+                to_="${line##*=}"
+                to_pos=$((to_ / timebase))
+            fi
+            ;;
+
+        esac
+    done <"$tmp_file"
+
+fi
 
 cmd='ffmpeg -hide_banner -loglevel warning -stats'
 if [ -n "$start" ]; then
