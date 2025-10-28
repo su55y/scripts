@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2046,SC2086,SC2181
+# shellcheck disable=SC2046,SC2086,SC2181,SC2329
 
 input=
 start=
@@ -7,13 +7,15 @@ duration=
 to_pos=
 ratio=
 chapters=
+show_chapters=0
 output="clip$(date +%s).mp4"
 
 show_help() {
     cat <<EOF
-usage: $(basename "$0") [-c C] [-d T] [-i FILE] [-r FLOAT] [-s T] [-t T] [-o FILE]
+usage: $(basename "$0") [-c C] [-C] [-d T] [-i FILE] [-r FLOAT] [-s T] [-t T] [-o FILE]
 
 -c chapters range
+-C show chapters list
 -d duration timestamp
 -i input file (required)
 -r ratio (0.5-2.0)
@@ -25,9 +27,10 @@ EOF
 
 parse_args() {
     OPTIND=1
-    while getopts 'c:d:i:o:r:s:t:' opt; do
+    while getopts 'c:d:i:o:r:s:t:C' opt; do
         case $opt in
         c) chapters=$OPTARG ;;
+        C) show_chapters=1 ;;
         d) duration=$OPTARG ;;
         i) input=$OPTARG ;;
         o) output=$OPTARG ;;
@@ -57,10 +60,11 @@ if [ -z "$input" ]; then
     exit 1
 fi
 
-[ -n "${start}${duration}${to_pos}${ratio}${chapters}" ] || exit 0
+if [ -n "${start}${duration}${to_pos}${ratio}${chapters}" ]; then
+    [ "$show_chapters" -eq 0 ] && exit 0
+fi
 
 if [ -n "$chapters" ]; then
-
     c_start="${chapters%%..*}"
     [ -z "$c_start" ] && c_start=1
     c_to="${chapters##*..}"
@@ -117,6 +121,78 @@ if [ -n "$chapters" ]; then
         esac
     done <"$tmp_file"
 
+elif [ "$show_chapters" -eq 1 ]; then
+    tmp_file=$(mktemp -t metadata.XXXXXXXXX)
+    cleanup() {
+        [ -f "$tmp_file" ] && rm "$tmp_file"
+    }
+    trap cleanup EXIT
+
+    ffmpeg -y -i "$input" -f ffmetadata "$tmp_file" 2>/dev/null || {
+        echo "FFMPEG ERROR!"
+        exit 1
+    }
+
+    d="$(ffprobe -v quiet -of csv=p=0 -show_entries format=duration "$input" | cut -d. -f1)"
+    l=0 # %02M:%02S
+    if [ $d -gt 86400 ]; then
+        l=3 # %d %02H:%02M:%02S
+    elif [ $d -gt 36000 ]; then
+        l=2 # %02H:%02M:%02S
+    elif [ $d -gt 3600 ]; then
+        l=1 # %H:%02M:%02S
+    fi
+
+    sec_to_date() {
+        v=${1:-0}
+        d=$((v / 86400))
+        h=$((v / 3600))
+        m=$(((v % 3600) / 60))
+        s=$((v % 60))
+        case $l in
+        0) printf '%02d:%02d\n' $m $s ;;
+        1) printf '%d:%02d:%02d\n' $h $m $s ;;
+        2) printf '%02d:%02d:%02d\n' $h $m $s ;;
+        3) printf '%d %02d:%02d:%02d' $d $h $m $s ;;
+        esac
+    }
+
+    cl="$(grep -c '\[CHAPTER\]' "$tmp_file")"
+    cl=${#cl}
+
+    start=0
+    is_header_done=0
+    chapter_num=0
+    timebase=
+
+    while read -r line; do
+        if [ "$line" = '[CHAPTER]' ]; then
+            is_header_done=1
+            chapter_num=$((chapter_num + 1))
+            continue
+        elif [ $is_header_done -eq 0 ]; then
+            continue
+        fi
+
+        case $line in
+        TIMEBASE=1/*)
+            if [ -z "$timebase" ]; then
+                timebase="${line##*/}"
+            fi
+            ;;
+        START=*)
+            start_="${line##*=}"
+            start=$((start_ / timebase))
+            ;;
+        title=*)
+            timestamp="$(sec_to_date "$start")"
+            title="${line##*=}"
+            printf "%0${cl}d [%s] %s\n" $chapter_num "$timestamp" "$title"
+            ;;
+
+        esac
+    done <"$tmp_file"
+    exit 0
 fi
 
 cmd='ffmpeg -hide_banner -loglevel warning -stats'
