@@ -18,7 +18,7 @@ usage: $(basename "$0") [-c C] [-C] [-d T] [-i FILE] [-r FLOAT] [-s T] [-t T] [-
 -C show chapters list
 -d duration timestamp
 -i input file (required)
--r ratio (0.5-2.0)
+-r speed ratio
 -s start timestamp
 -t to position timestamp
 -o output file (default: $output)
@@ -34,13 +34,7 @@ parse_args() {
         d) duration=$OPTARG ;;
         i) input=$OPTARG ;;
         o) output=$OPTARG ;;
-        r)
-            ratio=$OPTARG
-            if [ $(echo "$ratio >= 0.5 && $ratio <= 2.0" | bc -l) -ne 1 ]; then
-                echo "Invalid ratio '$ratio', should be in range 0.5-2.0"
-                exit 1
-            fi
-            ;;
+        r) ratio=$OPTARG ;;
         s) start=$OPTARG ;;
         t) to_pos=$OPTARG ;;
         *)
