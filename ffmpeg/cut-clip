@@ -14,7 +14,7 @@ show_help() {
     cat <<EOF
 usage: $(basename "$0") [-c C] [-C] [-d T] [-i FILE] [-r FLOAT] [-s T] [-t T] [-o FILE]
 
--c chapters range
+-c chapters range (e.g. 1..4, 2.., 3)
 -C show chapters list
 -d duration timestamp
 -i input file (required)
@@ -58,10 +58,6 @@ parse_args "$@"
 if [ -z "$input" ]; then
     show_help
     exit 1
-fi
-
-if [ -z "${start}${duration}${to_pos}${ratio}${chapters}" ]; then
-    [ "$show_chapters" -eq 0 ] && exit 0
 fi
 
 if [ -n "$chapters" ]; then
@@ -195,16 +191,19 @@ elif [ "$show_chapters" -eq 1 ]; then
     exit 0
 fi
 
+[ -n "${start}${duration}${to_pos}${ratio}" ] || exit 0
+
 cmd='ffmpeg -hide_banner -loglevel warning -stats'
 if [ -n "$start" ]; then
     cmd="$cmd -ss $start"
 fi
 
-cmd="$cmd -i '$input'"
-if [ -n "$duration" ]; then
-    cmd="$cmd -t $duration"
-elif [ -n "$to_pos" ]; then
-    cmd="$cmd -to $to_pos"
+if [ -n "$to_pos" ]; then
+    cmd="$cmd -to $to_pos -i '$input'"
+elif [ -n "$duration" ]; then
+    cmd="$cmd -i '$input' -t $duration"
+else
+    cmd="$cmd -i '$input'"
 fi
 
 if [ -n "$ratio" ]; then
