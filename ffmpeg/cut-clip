@@ -60,7 +60,7 @@ if [ -z "$input" ]; then
     exit 1
 fi
 
-if [ -n "${start}${duration}${to_pos}${ratio}${chapters}" ]; then
+if [ -z "${start}${duration}${to_pos}${ratio}${chapters}" ]; then
     [ "$show_chapters" -eq 0 ] && exit 0
 fi
 
