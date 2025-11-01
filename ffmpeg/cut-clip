@@ -74,10 +74,7 @@ if [ -n "$chapters" ]; then
     }
     trap cleanup EXIT
 
-    ffmpeg -y -i "$input" -f ffmetadata "$tmp_file" 2>/dev/null || {
-        echo "FFMPEG ERROR!"
-        exit 1
-    }
+    ffmpeg -y -v quiet -loglevel error -i "$input" -f ffmetadata "$tmp_file" || exit 1
 
     is_header_done=0
     chapter_num=0
@@ -121,10 +118,7 @@ elif [ "$show_chapters" -eq 1 ]; then
     }
     trap cleanup EXIT
 
-    ffmpeg -y -i "$input" -f ffmetadata "$tmp_file" 2>/dev/null || {
-        echo "FFMPEG ERROR!"
-        exit 1
-    }
+    ffmpeg -y -v quiet -loglevel error -i "$input" -f ffmetadata "$tmp_file" || exit 1
 
     d="$(ffprobe -v quiet -of csv=p=0 -show_entries format=duration "$input" | cut -d. -f1)"
     l=0 # %02M:%02S
@@ -151,6 +145,10 @@ elif [ "$show_chapters" -eq 1 ]; then
     }
 
     cl="$(grep -c '\[CHAPTER\]' "$tmp_file")"
+    if [ -z "$cl" ] || [ "$cl" = 0 ]; then
+        echo "No chapters"
+        exit 0
+    fi
     cl=${#cl}
 
     start=0
@@ -188,7 +186,10 @@ elif [ "$show_chapters" -eq 1 ]; then
     exit 0
 fi
 
-[ -n "${start}${duration}${to_pos}${ratio}" ] || exit 0
+if [ -z "${start}${duration}${to_pos}${ratio}" ]; then
+    show_help
+    exit 0
+fi
 
 cmd='ffmpeg -hide_banner -loglevel warning -stats'
 if [ -n "$start" ]; then
