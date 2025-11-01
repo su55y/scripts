@@ -9,10 +9,11 @@ ratio=
 chapters=
 show_chapters=0
 output="clip$(date +%s).mp4"
+ffmpeg_opts=
 
 show_help() {
     cat <<EOF
-usage: $(basename "$0") [-c C] [-C] [-d T] [-i FILE] [-r FLOAT] [-s T] [-t T] [-o FILE]
+usage: $(basename "$0") [-c C] [-C] [-d T] [-i FILE] [-r FLOAT] [-s T] [-t T] [-o FILE] [-O OPTS]
 
 -c chapters range (e.g. 1..4, 2.., 3)
 -C show chapters list
@@ -22,18 +23,20 @@ usage: $(basename "$0") [-c C] [-C] [-d T] [-i FILE] [-r FLOAT] [-s T] [-t T] [-
 -s start timestamp
 -t to position timestamp
 -o output file (default: $output)
+-O ffmpeg opts
 EOF
 }
 
 parse_args() {
     OPTIND=1
-    while getopts 'c:d:i:o:r:s:t:C' opt; do
+    while getopts 'c:d:i:o:r:s:t:O:C' opt; do
         case $opt in
         c) chapters=$OPTARG ;;
         C) show_chapters=1 ;;
         d) duration=$OPTARG ;;
         i) input=$OPTARG ;;
         o) output=$OPTARG ;;
+        O) ffmpeg_opts=$OPTARG ;;
         r) ratio=$OPTARG ;;
         s) start=$OPTARG ;;
         t) to_pos=$OPTARG ;;
@@ -232,7 +235,11 @@ else
     cmd="$cmd -c copy"
 fi
 
-cmd="$cmd $output"
+if [ -n "$ffmpeg_opts" ]; then
+    cmd="$cmd $ffmpeg_opts $output"
+else
+    cmd="$cmd $output"
+fi
 
 printf "%s\nExecute it? [Y/n]: " "$cmd"
 read -r answ
