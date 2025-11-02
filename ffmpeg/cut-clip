@@ -10,10 +10,11 @@ chapters=
 show_chapters=0
 output="clip$(date +%s).mp4"
 ffmpeg_opts=
+y_=0
 
 show_help() {
     cat <<EOF
-usage: $(basename "$0") [-c C] [-C] [-d T] [-i FILE] [-r FLOAT] [-s T] [-t T] [-o FILE] [-O OPTS]
+usage: $(basename "$0") [-c C] [-C] [-d T] [-i FILE] [-r FLOAT] [-s T] [-t T] [-o FILE] [-O OPTS] [-y]
 
 -c chapters range (e.g. 1..4, 2.., 3)
 -C show chapters list
@@ -24,12 +25,13 @@ usage: $(basename "$0") [-c C] [-C] [-d T] [-i FILE] [-r FLOAT] [-s T] [-t T] [-
 -t to position timestamp
 -o output file (default: $output)
 -O ffmpeg opts
+-y execute ffmpeg cmd without asking
 EOF
 }
 
 parse_args() {
     OPTIND=1
-    while getopts 'c:d:i:o:r:s:t:O:C' opt; do
+    while getopts 'c:d:i:o:r:s:t:O:yC' opt; do
         case $opt in
         c) chapters=$OPTARG ;;
         C) show_chapters=1 ;;
@@ -40,6 +42,7 @@ parse_args() {
         r) ratio=$OPTARG ;;
         s) start=$OPTARG ;;
         t) to_pos=$OPTARG ;;
+        y) y_=1 ;;
         *)
             show_help
             exit 0
@@ -242,9 +245,19 @@ else
     cmd="$cmd $output"
 fi
 
-printf "%s\nExecute it? [Y/n]: " "$cmd"
-read -r answ
-case $answ in
-n* | N*) exit 0 ;;
+case $y_ in
+0)
+    printf "%s\nExecute it? [Y/n]: " "$cmd"
+    read -r answ
+    case $answ in
+    n* | N*) exit 0 ;;
+    esac
+    ;;
+1)
+    echo "$cmd"
+    ;;
+*)
+    exit 1
+    ;;
 esac
 eval "$cmd"
