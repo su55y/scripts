@@ -105,17 +105,14 @@ def parse_probe(s: dict[str, Any]) -> Probe:
     streams = s.get("streams", list())
     if not streams or len(streams) != 1:
         raise InvalidProbeFormat(f"{streams=!r}")
-    match streams[0]:
-        case {
-            "width": int(),
-            "height": int(),
-        }:
-            return Probe(
-                width=int(streams[0]["width"]),
-                height=int(streams[0]["height"]),
-                duration=float(format["duration"]),
-            )
-    raise InvalidProbeFormat(f"{streams[0]=!r}")
+    try:
+        return Probe(
+            width=int(streams[0]["width"]),
+            height=int(streams[0]["height"]),
+            duration=float(format["duration"]),
+        )
+    except:
+        raise InvalidProbeFormat(f"{streams[0]=!r}")
 
 
 def generate_preview(args: argparse.Namespace, probe: Probe):
