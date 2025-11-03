@@ -168,7 +168,7 @@ if __name__ == "__main__":
         raise Exception("can't get output from cmd '%s'" % probe_cmd)
     raw_probe = json.loads(probe_out)
     probe = parse_probe(raw_probe)
-    interval = int(probe.duration / args.count)
+    fps = round(args.count / probe.duration, 3)
     verbosity = "" if args.verbose else SILENCE_OPTS
 
     cmd = [
@@ -177,9 +177,7 @@ if __name__ == "__main__":
         "-i",
         args.file,
         "-filter:v",
-        f"select='not(mod(t,{interval}))',setpts=N/(FRAME_RATE*TB)",
-        "-fps_mode",
-        "vfr",
+        f"fps=fps={fps}",
         "-frames:v",
         str(args.count),
         str(args.format),

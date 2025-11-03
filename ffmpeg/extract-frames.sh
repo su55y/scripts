@@ -77,7 +77,6 @@ parse_args() {
 
 parse_args "$@"
 
-
 if [ ! -f "$INPUT_FILE" ]; then
     echo "INPUT_FILE '$INPUT_FILE' not found"
     exit 1
@@ -119,17 +118,15 @@ if [ ! -d "$OUTPUT_DIR_" ]; then
     esac
 fi
 
-INTERVAL=$(echo "$DURATION/$FRAMES_COUNT" | bc)
+FPS=$(echo "$FRAMES_COUNT/$DURATION" | bc -l || exit 1)
 
-if [ $VERBOSE -eq 1 ]; then
-    quiet=
-else
-    quiet='-loglevel warning -stats'
+quiet=
+if [ $VERBOSE -eq 0 ]; then
+    quiet='-hide_banner -loglevel warning -stats'
 fi
 
-ffmpeg -hide_banner $quiet -i "$INPUT_FILE" \
-    -filter:v "select='not(mod(t,$INTERVAL))',setpts=N/(FRAME_RATE*TB)'" \
-    -fps_mode vfr -frames:v $FRAMES_COUNT "$OUTPUT_FMT" || exit 1
+ffmpeg $quiet -i "$INPUT_FILE" -filter:v fps=fps=$FPS \
+    -frames:v $FRAMES_COUNT "$OUTPUT_FMT" || exit 1
 
 if [ $GENERATE_PREVIEW -eq 1 ]; then
     if [ -z "$PREVIEW_OUTPUT" ]; then
