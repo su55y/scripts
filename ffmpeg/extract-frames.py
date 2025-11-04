@@ -15,65 +15,32 @@ SILENCE_OPTS = "-hide_banner -loglevel warning -stats"
 MONTAGE_CMD = "montage -geometry +0+0 -tile %s %s %s"
 
 DEFAULT_COUNT = 10
-DEFAULT_FMT = "frames/frame%02d.png"
+DEFAULT_OUTPUT = "frames/frame%02d.png"
 DEFAULT_PREVIEW = "preview.png"
 
 
 def parse_args():
-    def check_count(arg: str) -> int:
-        try:
-            num = int(arg)
-            if num < 1:
-                raise argparse.ArgumentTypeError("count should be positive number")
-        except:
-            raise argparse.ArgumentTypeError("invalid count '%s'" % arg)
-        else:
-            return num
-
-    def check_format(arg: str) -> Path:
-        try:
-            path = Path(arg)
-            if not re.match(r"^.*%(?:0\d)?d\..+$", path.name):
-                raise argparse.ArgumentTypeError(f"invalid format '{path.name}'")
-            if not path.parent.exists():
-                if "-y" not in argv[1:]:
-                    resp = input(
-                        "path '%s' not exists, create? [Y/n]: " % path.parent.absolute()
-                    )
-                    if resp.lower().startswith("n"):
-                        exit(0)
-                path.parent.mkdir(parents=True, exist_ok=True)
-        except KeyboardInterrupt:
-            exit(0)
-        except Exception as e:
-            raise argparse.ArgumentTypeError(f"parse format error: {e}")
-        else:
-            return path
-
     parser = argparse.ArgumentParser()
-    parser.add_argument("file", help="input file")
+    parser.add_argument("input", help="input file")
     parser.add_argument(
         "-c",
         "--count",
-        type=check_count,
-        default=DEFAULT_COUNT,
         metavar="INT",
-        help="frames count (default: %(default)s)",
+        help=f"frames count (default: {DEFAULT_COUNT})",
     )
     parser.add_argument(
-        "-f",
-        "--format",
-        type=check_format,
-        default=DEFAULT_FMT,
+        "-o",
+        "--output",
+        default=DEFAULT_OUTPUT,
         metavar="STR",
-        help="output format (default: %(default)s), should include %%d format specifier",
+        help="frames output (default: %(default)s), should include %%d format specifier",
     )
     parser.add_argument("-p", "--preview", action="store_true", help="generate preview")
     parser.add_argument(
         "-P",
         "--preview-output",
         metavar="PATH",
-        help="preview path (default: format based frames_output_dir/preview.png)",
+        help="preview output (default: format based frames_output_dir/preview.png)",
     )
     parser.add_argument(
         "-t",
@@ -115,7 +82,14 @@ def parse_probe(s: dict[str, Any]) -> Probe:
         raise InvalidProbeFormat(f"{streams[0]=!r}")
 
 
-def generate_preview(args: argparse.Namespace, probe: Probe):
+def generate_preview(
+    *,
+    probe: Probe,
+    count: int,
+    output: Path,
+    preview_template: str,
+    preview_output: str,
+):
     rx_num = re.compile(r"(\d+)")
 
     def find_num(s: str) -> int:
@@ -126,28 +100,56 @@ def generate_preview(args: argparse.Namespace, probe: Probe):
             pass
         return 0
 
-    output = args.preview_output or args.format.parent.joinpath(DEFAULT_PREVIEW)
-    rows = args.count // int(math.sqrt(args.count))
-    cols = args.count // rows
+    p_output = preview_output or output.parent.joinpath(DEFAULT_PREVIEW)
+    rows = count // int(math.sqrt(count))
+    cols = count // rows
     # swap cols and rows for vertical aspect ratio
     if (probe.width / probe.height) < 1 and cols < rows:
         cols, rows = rows, cols
 
-    template = args.preview_template or f"{cols}x{rows}"
+    template = preview_template or f"{cols}x{rows}"
     files = " ".join(
         str(p)
         for p in sorted(
-            args.format.parent.glob(f"*{args.format.suffix}"),
+            output.parent.glob(f"*{output.suffix}"),
             key=lambda f: find_num(f.stem),
         )[: cols * rows]
     )
-    cmd = MONTAGE_CMD % (template, files, output)
+    cmd = MONTAGE_CMD % (template, files, p_output)
     print(cmd)
     sp.run(cmd.split())
 
 
+def validate_output(v: str) -> Path:
+    try:
+        path = Path(v)
+        if not re.match(r"^.*%(?:0\d)?d\..+$", path.name):
+            raise argparse.ArgumentTypeError(
+                f"invalid output value '{path.name}', should include %d format specifier"
+            )
+        if not path.parent.exists():
+            if "-y" not in argv[1:]:
+                resp = input(
+                    "directory '%s' not exists, create? [Y/n]: " % path.parent.absolute()
+                )
+                if resp.lower().startswith("n"):
+                    exit(0)
+            path.parent.mkdir(parents=True, exist_ok=True)
+    except KeyboardInterrupt:
+        exit(0)
+    except Exception as e:
+        raise e
+    else:
+        return path
+
+
 if __name__ == "__main__":
     args = parse_args()
+    count = int(args.count)
+    if count < 1:
+        raise argparse.ArgumentTypeError("count should be positive number")
+
+    output = validate_output(args.output)
 
     probe_cmd = [
         "ffprobe",
@@ -159,7 +161,7 @@ if __name__ == "__main__":
         "v:0",
         "-of",
         "json",
-        args.file,
+        args.input,
     ]
     if args.verbose:
         print(" ".join(probe_cmd))
@@ -168,21 +170,27 @@ if __name__ == "__main__":
         raise Exception("can't get output from cmd '%s'" % probe_cmd)
     raw_probe = json.loads(probe_out)
     probe = parse_probe(raw_probe)
-    fps = round(args.count / probe.duration, 3)
+    fps = round(count / probe.duration, 3)
     verbosity = "" if args.verbose else SILENCE_OPTS
 
     cmd = [
         "ffmpeg",
         *verbosity.split(),
         "-i",
-        args.file,
+        args.input,
         "-filter:v",
         f"fps=fps={fps}",
         "-frames:v",
-        str(args.count),
-        str(args.format),
+        str(count),
+        str(output),
     ]
     if args.verbose:
         print(" ".join(cmd))
     if sp.run(cmd).returncode == 0 and args.preview:
-        generate_preview(args, probe)
+        generate_preview(
+            probe=probe,
+            count=count,
+            output=output,
+            preview_template=args.preview_template,
+            preview_output=args.preview_output,
+        )

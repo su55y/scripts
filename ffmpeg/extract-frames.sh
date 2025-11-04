@@ -14,9 +14,10 @@ show_help() {
 usage: extract-frames [-i FILE] [-c INT] [-f STR] [-p] [-P PATH] [-t STR] [-v] [-y] [-h]
 
 options:
-  -h           show this help message and exit
   -c INT       frames count (default: 10)
-  -f STR       output format (default: frames/frame%02d.png), should include %d format specifier
+  -o STR       frames output (default: frames/frame%02d.png), should include %d format specifier
+  -h           show this help message and exit
+  -i FILE      input file (required)
   -p           generate preview
   -P PATH      preview path (default: format based frames_output_dir/preview.png)
   -t STR       preview tiling template (default: '{α}x{count/α}', where 'α' is square root of 'count')
@@ -27,7 +28,7 @@ EOF
 
 parse_args() {
     OPTIND=1
-    while getopts "i:c:f:P:t:hpvy" opt; do
+    while getopts "i:c:o:P:t:hpvy" opt; do
         case "$opt" in
         h)
             show_help
@@ -52,10 +53,10 @@ parse_args() {
                 ;;
             esac
             ;;
-        f)
+        o)
             OUTPUT_FMT=$OPTARG
             if ! echo "$OUTPUT_FMT" | grep -qP '^.*%\d*d.+$'; then
-                echo "Invalid OUTPUT_FMT '$OUTPUT_FMT'"
+                echo "Invalid output value '$OUTPUT_FMT', should should include %d format specifier"
                 exit 1
             fi
             ;;
@@ -87,7 +88,7 @@ print_log() { [ $VERBOSE -eq 1 ] && echo "$1"; }
 print_log "Extracting $FRAMES_COUNT frames..."
 print_log "Output fmt: '$OUTPUT_FMT'..."
 
-PROBE_FILE="${TEMPDIR:-/tmp}/$INPUT_FILE.probe.json"
+PROBE_FILE="${TEMPDIR:-/tmp}/$(basename "$INPUT_FILE").probe.json"
 if [ ! -f "$PROBE_FILE" ]; then
     if [ $VERBOSE -eq 1 ]; then
         quiet=
