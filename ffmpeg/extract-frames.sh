@@ -88,7 +88,7 @@ print_log() { [ $VERBOSE -eq 1 ] && echo "$1"; }
 print_log "Extracting $FRAMES_COUNT frames..."
 print_log "Output fmt: '$OUTPUT_FMT'..."
 
-PROBE_FILE="${TEMPDIR:-/tmp}/$(basename "$INPUT_FILE").probe.json"
+PROBE_FILE="${TEMPDIR:-/tmp}/$(head -c 4096 "$INPUT_FILE" | sha256sum | cut -d' ' -f1).probe.json"
 if [ ! -f "$PROBE_FILE" ]; then
     if [ $VERBOSE -eq 1 ]; then
         quiet=
