@@ -2,8 +2,10 @@
 
 import argparse
 from dataclasses import dataclass
+import hashlib
 import json
 import math
+import os
 import re
 import subprocess as sp
 from pathlib import Path
@@ -65,11 +67,43 @@ class Probe:
     duration: float
 
 
-def parse_probe(s: dict[str, Any]) -> Probe:
-    format = s.get("format", dict())
+def get_probe(input_file: Path, verbose: bool = False) -> Probe:
+    probe_file = Path(os.environ.get("TEMPDIR", "/tmp"))
+    hash_obj = hashlib.sha256()
+    with open(input_file, "rb") as f:
+        hash_obj.update(f.read(4096))
+        probe_file = probe_file.joinpath(f"{hash_obj.hexdigest()}.probe.json")
+
+    if probe_file.exists():
+        with open(probe_file) as pf:
+            print("reading probe from cache")
+            raw_probe = json.load(pf)
+    else:
+        probe_cmd = [
+            "ffprobe",
+            "-v",
+            "quiet",
+            "-show_format",
+            "-show_streams",
+            "-select_streams",
+            "v:0",
+            "-of",
+            "json",
+            input_file,
+        ]
+        if verbose:
+            print(" ".join(probe_cmd))
+        probe_out = sp.check_output(probe_cmd, stderr=sp.DEVNULL, timeout=10)
+        if not probe_out:
+            raise Exception("can't get output from cmd '%s'" % probe_cmd)
+        with open(probe_file, "w") as pf:
+            print("writing probe cache")
+            pf.write(probe_out.decode())
+        raw_probe = json.loads(probe_out)
+    format = raw_probe.get("format", dict())
     if not format or "duration" not in format:
         raise InvalidProbeFormat(f"{format=!r}")
-    streams = s.get("streams", list())
+    streams = raw_probe.get("streams", list())
     if not streams or len(streams) != 1:
         raise InvalidProbeFormat(f"{streams=!r}")
     try:
@@ -130,7 +164,8 @@ def validate_output(v: str) -> Path:
         if not path.parent.exists():
             if "-y" not in argv[1:]:
                 resp = input(
-                    "directory '%s' not exists, create? [Y/n]: " % path.parent.absolute()
+                    "directory '%s' not exists, create? [Y/n]: "
+                    % path.parent.absolute()
                 )
                 if resp.lower().startswith("n"):
                     exit(0)
@@ -151,25 +186,12 @@ if __name__ == "__main__":
 
     output = validate_output(args.output)
 
-    probe_cmd = [
-        "ffprobe",
-        "-v",
-        "quiet",
-        "-show_format",
-        "-show_streams",
-        "-select_streams",
-        "v:0",
-        "-of",
-        "json",
-        args.input,
-    ]
-    if args.verbose:
-        print(" ".join(probe_cmd))
-    probe_out = sp.check_output(probe_cmd, stderr=sp.DEVNULL, timeout=10)
-    if not probe_out:
-        raise Exception("can't get output from cmd '%s'" % probe_cmd)
-    raw_probe = json.loads(probe_out)
-    probe = parse_probe(raw_probe)
+    input_file = Path(args.input).expanduser()
+    if not input_file.exists():
+        print(f"File {input_file} doesn't exist")
+        exit(1)
+
+    probe = get_probe(input_file, args.verbose)
     fps = round(count / probe.duration, 3)
     verbosity = "" if args.verbose else SILENCE_OPTS
 
