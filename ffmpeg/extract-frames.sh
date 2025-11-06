@@ -19,7 +19,7 @@ options:
   -h           show this help message and exit
   -i FILE      input file (required)
   -p           generate preview
-  -P PATH      preview path (default: format based frames_output_dir/preview.png)
+  -P PATH      preview path (default: frames/preview.png)
   -t STR       preview tiling template (default: '{α}x{count/α}', where 'α' is square root of 'count')
   -v           verbose output
   -y           confirm mkdir -p
@@ -129,44 +129,48 @@ fi
 ffmpeg $quiet -i "$INPUT_FILE" -filter:v fps=fps=$FPS \
     -frames:v $FRAMES_COUNT "$OUTPUT_FMT" || exit 1
 
-if [ $GENERATE_PREVIEW -eq 1 ]; then
-    if [ -z "$PREVIEW_OUTPUT" ]; then
-        PREVIEW_OUTPUT="$(dirname "$OUTPUT_FMT")/preview.png"
-    fi
-    if [ -z "$PREVIEW_TEMPLATE" ]; then
-        sqrt_count=$(echo "scale=10; sqrt($FRAMES_COUNT)" | bc -l)
-        rows=$((FRAMES_COUNT / ${sqrt_count%.*}))
-        cols=$((FRAMES_COUNT / rows))
-
-        WIDTH=$(jq -r '.streams[0]?.width?' "$PROBE_FILE")
-        if [ "$WIDTH" = null ]; then
-            echo "Can't get width from probe $PROBE_FILE"
-            exit 1
-        fi
-        HEIGHT=$(jq -r '.streams[0]?.height?' "$PROBE_FILE")
-        if [ "$HEIGHT" = null ]; then
-            echo "Can't get height from probe $PROBE_FILE"
-            exit 1
-        fi
-
-        if [ $WIDTH -lt $HEIGHT ] && [ $cols -lt $rows ]; then
-            tmp_cols=$cols
-            cols=$rows
-            rows=$tmp_cols
-        fi
-
-        PREVIEW_TEMPLATE=${cols}x${rows}
-    fi
-
-    print_log "Generating $PREVIEW_TEMPLATE preview '$PREVIEW_OUTPUT'..."
-    inputs=
-    for i in $(seq 1 $FRAMES_COUNT); do
-        filename="$(printf "$OUTPUT_FMT" $i)"
-        if [ ! -f "$filename" ]; then
-            echo "File '$filename' not found"
-            exit 1
-        fi
-        inputs="$inputs $filename"
-    done
-    montage $inputs -geometry +0+0 -tile "$PREVIEW_TEMPLATE" "$PREVIEW_OUTPUT"
+if [ $GENERATE_PREVIEW -eq 0 ]; then
+    exit 0
 fi
+
+if [ -z "$PREVIEW_OUTPUT" ]; then
+    PREVIEW_OUTPUT="$(dirname "$OUTPUT_FMT")/preview.png"
+fi
+
+if [ -z "$PREVIEW_TEMPLATE" ]; then
+    sqrt_count=$(echo "scale=10; sqrt($FRAMES_COUNT)" | bc -l)
+    rows=$((FRAMES_COUNT / ${sqrt_count%.*}))
+    cols=$((FRAMES_COUNT / rows))
+
+    WIDTH=$(jq -r '.streams[0]?.width?' "$PROBE_FILE")
+    if [ "$WIDTH" = null ]; then
+        echo "Can't get width from probe $PROBE_FILE"
+        exit 1
+    fi
+
+    HEIGHT=$(jq -r '.streams[0]?.height?' "$PROBE_FILE")
+    if [ "$HEIGHT" = null ]; then
+        echo "Can't get height from probe $PROBE_FILE"
+        exit 1
+    fi
+
+    if [ $WIDTH -lt $HEIGHT ] && [ $cols -lt $rows ]; then
+        tmp_cols=$cols
+        cols=$rows
+        rows=$tmp_cols
+    fi
+
+    PREVIEW_TEMPLATE=${cols}x${rows}
+fi
+
+print_log "Generating $PREVIEW_TEMPLATE preview '$PREVIEW_OUTPUT'..."
+inputs=
+for i in $(seq 1 $FRAMES_COUNT); do
+    filename="$(printf "$OUTPUT_FMT" $i)"
+    if [ ! -f "$filename" ]; then
+        echo "File '$filename' not found"
+        exit 1
+    fi
+    inputs="$inputs $filename"
+done
+montage $inputs -geometry +0+0 -tile "$PREVIEW_TEMPLATE" "$PREVIEW_OUTPUT"

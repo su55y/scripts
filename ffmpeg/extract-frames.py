@@ -42,7 +42,7 @@ def parse_args():
         "-P",
         "--preview-output",
         metavar="PATH",
-        help="preview output (default: format based frames_output_dir/preview.png)",
+        help="preview output (default: frames/preview.png)",
     )
     parser.add_argument(
         "-t",
