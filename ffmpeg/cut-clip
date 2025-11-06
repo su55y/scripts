@@ -207,6 +207,10 @@ else
     cmd="$cmd -i '$input'"
 fi
 
+if [ -n "$chapters" ]; then
+    cmd="$cmd -map_metadata -1 -map_chapters -1"
+fi
+
 if [ -n "$ratio" ]; then
     probe="$(ffprobe -v quiet -show_streams -of json "$input")"
     if [ $? -ne 0 ]; then
