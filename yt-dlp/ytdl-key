@@ -11,6 +11,8 @@ DEFAULT_OUTPUT="$HOME/Videos/YouTube/%(uploader)s/%(title)s.%(ext)s"
 DEFAULT_PL_OUTPUT="$HOME/Videos/YouTube/%(uploader)s/%(playlist_title)s/%(playlist_index)d %(title)s.%(ext)s"
 DEFAULT_M_PL_OUTPUT="$HOME/Music/YouTube/%(uploader)s/%(playlist_title)s/%(playlist_index)d %(title)s.%(ext)s"
 DEFAULT_M_OUTPUT="$HOME/Music/YouTube/%(uploader)s - %(title)s.%(ext)s"
+DEFAULT_SC_OUTPUT="$HOME/Music/SC/%(title)s.%(ext)s"
+DEFAULT_SC_PL_OUTPUT="$HOME/Music/SC/%(uploader)s/%(playlist_title)s/%(playlist_index)d %(title)s.%(ext)s"
 HISTORY_DB="${XDG_DATA_HOME:-$HOME/.local/share}/playlist_ctl/playlist_ctl.db"
 
 show_help() {
@@ -69,6 +71,8 @@ is_twitch=0
 is_playlist=0
 is_music=0
 is_music_playlist=0
+is_sc_music=0
+is_sc_playlist=0
 if echo "$url" | grep -qP '^(?:https\:\/\/)?(?:www\.)?twitch\.tv\/videos\/[0-9]{10}'; then
     is_twitch=1
 elif echo "$url" | grep -qP '^(?:https\:\/\/)?(?:www\.)?(?:music\.)?(youtube\.com\/playlist\?list=[A-Za-z0-9\-_]{18,34})'; then
@@ -80,6 +84,13 @@ elif echo "$url" | grep -qP '^(?:https\:\/\/)?(?:www\.)?(?:music\.)?(youtube\.co
     fi
 elif echo "$url" | grep -qP '^(?:https\:\/\/)?(?:www\.)?music\.youtube\.com\/watch'; then
     is_music=1
+    echo "$ytdl_opts" | grep -qE -- '--no-playlist' || ytdl_opts="$ytdl_opts --no-playlist"
+    echo "$ytdl_opts" | grep -qE -- '-f [^ ]+' || ytdl_opts="$ytdl_opts -f ba"
+elif echo "$url" | grep -qP '^(?:https\:\/\/)?soundcloud\.com/[^\/]+\/sets\/.+'; then
+    is_sc_playlist=1
+    echo "$ytdl_opts" | grep -qE -- '-f [^ ]+' || ytdl_opts="$ytdl_opts -f ba"
+elif echo "$url" | grep -qP '(?:https\:\/\/)?soundcloud\.com\/.+'; then
+    is_sc_music=1
     echo "$ytdl_opts" | grep -qE -- '--no-playlist' || ytdl_opts="$ytdl_opts --no-playlist"
     echo "$ytdl_opts" | grep -qE -- '-f [^ ]+' || ytdl_opts="$ytdl_opts -f ba"
 else
@@ -107,6 +118,8 @@ if [ -z "$output" ]; then
     output="$DEFAULT_OUTPUT"
     [ $is_playlist -eq 1 ] && output="$DEFAULT_PL_OUTPUT"
     [ $is_music -eq 1 ] && output="$DEFAULT_M_OUTPUT"
+    [ $is_sc_music -eq 1 ] && output="$DEFAULT_SC_OUTPUT"
+    [ $is_sc_playlist -eq 1 ] && output="$DEFAULT_SC_PL_OUTPUT"
     [ $is_music_playlist -eq 1 ] && output="$DEFAULT_M_PL_OUTPUT"
 fi
 
