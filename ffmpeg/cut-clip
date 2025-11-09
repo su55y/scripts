@@ -60,6 +60,17 @@ if [ -z "$input" ]; then
     exit 1
 fi
 
+chapters_file=
+if [ -n "$chapters" ] || [ "$show_chapters" -eq 1 ]; then
+    chapters_file=$(mktemp -t metadata.XXXXXXXXX)
+    cleanup() {
+        [ -f "$chapters_file" ] && rm "$chapters_file"
+    }
+    trap cleanup EXIT
+
+    ffmpeg -y -v quiet -loglevel error -i "$input" -f ffmetadata "$chapters_file" || exit 1
+fi
+
 if [ -n "$chapters" ]; then
     c_start="${chapters%%..*}"
     [ -z "$c_start" ] && c_start=1
@@ -70,14 +81,6 @@ if [ -n "$chapters" ]; then
         echo "Invalid chapters range '$chapters'"
         exit 1
     fi
-
-    tmp_file=$(mktemp -t metadata.XXXXXXXXX)
-    cleanup() {
-        [ -f "$tmp_file" ] && rm -v "$tmp_file"
-    }
-    trap cleanup EXIT
-
-    ffmpeg -y -v quiet -loglevel error -i "$input" -f ffmetadata "$tmp_file" || exit 1
 
     is_header_done=0
     chapter_num=0
@@ -93,11 +96,7 @@ if [ -n "$chapters" ]; then
         fi
 
         case $line in
-        TIMEBASE=1/*)
-            if [ -z "$timebase" ]; then
-                timebase="${line##*/}"
-            fi
-            ;;
+        TIMEBASE=1/*) [ -z "$timebase" ] && timebase="${line##*/}" ;;
         START=*)
             if [ $c_start -eq $chapter_num ]; then
                 start_="${line##*=}"
@@ -112,17 +111,9 @@ if [ -n "$chapters" ]; then
             ;;
 
         esac
-    done <"$tmp_file"
+    done <"$chapters_file"
 
 elif [ "$show_chapters" -eq 1 ]; then
-    tmp_file=$(mktemp -t metadata.XXXXXXXXX)
-    cleanup() {
-        [ -f "$tmp_file" ] && rm "$tmp_file"
-    }
-    trap cleanup EXIT
-
-    ffmpeg -y -v quiet -loglevel error -i "$input" -f ffmetadata "$tmp_file" || exit 1
-
     d="$(ffprobe -v quiet -of csv=p=0 -show_entries format=duration "$input" | cut -d. -f1)"
     l=0 # %02M:%02S
     if [ $d -gt 86400 ]; then
@@ -147,7 +138,7 @@ elif [ "$show_chapters" -eq 1 ]; then
         esac
     }
 
-    cl="$(grep -c '\[CHAPTER\]' "$tmp_file")"
+    cl="$(grep -c '\[CHAPTER\]' "$chapters_file")"
     if [ -z "$cl" ] || [ "$cl" = 0 ]; then
         echo "No chapters"
         exit 0
@@ -169,11 +160,7 @@ elif [ "$show_chapters" -eq 1 ]; then
         fi
 
         case $line in
-        TIMEBASE=1/*)
-            if [ -z "$timebase" ]; then
-                timebase="${line##*/}"
-            fi
-            ;;
+        TIMEBASE=1/*) [ -z "$timebase" ] && timebase="${line##*/}" ;;
         START=*)
             start_="${line##*=}"
             start=$((start_ / timebase))
@@ -185,7 +172,7 @@ elif [ "$show_chapters" -eq 1 ]; then
             ;;
 
         esac
-    done <"$tmp_file"
+    done <"$chapters_file"
     exit 0
 fi
 
