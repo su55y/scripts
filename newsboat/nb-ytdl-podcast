@@ -67,13 +67,12 @@ if __name__ == "__main__":
     except:
         ratio = DEFAULT_RATIO
 
-    if all(
-        re.match(
-            r"^(?:https:\/\/)?(?:www\.)?youtube.com\/playlist\?list=[-_0-9a-zA-Z]{18,34}",
-            u,
-        )
-        for u in urls
-    ):
+    rx_yt_pl = re.compile(
+        r"^(?:https:\/\/)?(?:www\.)?youtube.com\/playlist\?list=[-_0-9a-zA-Z]{18,34}"
+    )
+
+    rx_sc_pl = re.compile(r"^(?:https\:\/\/)?soundcloud\.com/[^\/]+\/sets\/.+")
+    if all(rx_yt_pl.match(u) or rx_sc_pl.match(u) for u in urls):
         DEFAULT_OUTPUT = DEFAULT_PLAYLIST_OUTPUT
     else:
         urls = clean_urls(urls)
