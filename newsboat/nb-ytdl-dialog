@@ -25,7 +25,7 @@ case $out in
 t) out="%(title)s.%(ext)s" ;;
 esac
 
-printf 'run with tsp? (Y/n): '
+printf 'run with tsp? (y/N): '
 read -r use_tsp
 case $use_tsp in
 y)
