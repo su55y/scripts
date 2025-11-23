@@ -10,7 +10,7 @@ chapters=
 show_chapters=0
 output="clip$(date +%s).mp4"
 ffmpeg_opts=
-y_=0
+y=0
 
 show_help() {
     cat <<EOF
@@ -25,7 +25,7 @@ usage: $(basename "$0") [-c C] [-C] [-d T] [-i FILE] [-r FLOAT] [-s T] [-t T] [-
 -t to position timestamp
 -o output file (default: $output)
 -O ffmpeg output opts
--y execute ffmpeg cmd without asking
+-y explicitly confirm ffmpeg cmd execution and overwrite the file if it exists
 EOF
 }
 
@@ -42,7 +42,7 @@ parse_args() {
         r) ratio=$OPTARG ;;
         s) start=$OPTARG ;;
         t) to_pos=$OPTARG ;;
-        y) y_=1 ;;
+        y) y=1 ;;
         *)
             show_help
             exit 0
@@ -182,6 +182,10 @@ if [ -z "${start}${duration}${to_pos}${ratio}" ]; then
 fi
 
 cmd='ffmpeg -hide_banner -loglevel warning -stats'
+if [ $y -eq 1 ]; then
+    cmd="$cmd -y"
+fi
+
 if [ -n "$start" ]; then
     cmd="$cmd -ss $start"
 fi
@@ -236,7 +240,7 @@ else
     cmd="$cmd $output"
 fi
 
-if [ $y_ -ne 1 ]; then
+if [ $y -ne 1 ]; then
     printf "%s\nExecute it? [Y/n]: " "$cmd"
     read -r answ
     case $answ in
