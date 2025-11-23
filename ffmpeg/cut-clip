@@ -24,7 +24,7 @@ usage: $(basename "$0") [-c C] [-C] [-d T] [-i FILE] [-r FLOAT] [-s T] [-t T] [-
 -s start timestamp
 -t to position timestamp
 -o output file (default: $output)
--O ffmpeg opts
+-O ffmpeg output opts
 -y execute ffmpeg cmd without asking
 EOF
 }
@@ -236,19 +236,14 @@ else
     cmd="$cmd $output"
 fi
 
-case $y_ in
-0)
+if [ $y_ -ne 1 ]; then
     printf "%s\nExecute it? [Y/n]: " "$cmd"
     read -r answ
     case $answ in
     n* | N*) exit 0 ;;
     esac
-    ;;
-1)
+else
     echo "$cmd"
-    ;;
-*)
-    exit 1
-    ;;
-esac
+fi
+
 eval "$cmd"
