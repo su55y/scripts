@@ -2,8 +2,8 @@
 
 INPUT_FILE=
 FRAMES_COUNT=10
-DEFAULT_OUTPUT_FMT=frames/frame%s.png
-OUTPUT_FMT=
+DEFAULT_OUTPUT=frames/frame%s.png
+OUTPUT=
 GENERATE_PREVIEW=0
 PREVIEW_OUTPUT=
 PREVIEW_TEMPLATE=
@@ -55,9 +55,9 @@ parse_args() {
             esac
             ;;
         o)
-            OUTPUT_FMT=$OPTARG
-            if ! echo "$OUTPUT_FMT" | grep -qP '^.*%\d*d.+$'; then
-                echo "Invalid output value '$OUTPUT_FMT', should should include %d format specifier"
+            OUTPUT=$OPTARG
+            if ! echo "$OUTPUT" | grep -qP '^.*%\d*d.+$'; then
+                echo "Invalid output value '$OUTPUT', should should include %d format specifier"
                 exit 1
             fi
             ;;
@@ -87,7 +87,7 @@ fi
 print_log() { [ $VERBOSE -eq 1 ] && echo "$1"; }
 
 print_log "Extracting $FRAMES_COUNT frames..."
-print_log "Output fmt: '$OUTPUT_FMT'..."
+print_log "Output fmt: '$OUTPUT'..."
 
 PROBE_FILE="${TEMPDIR:-/tmp}/$(head -c 4096 "$INPUT_FILE" | sha256sum | cut -d' ' -f1).probe.json"
 if [ ! -f "$PROBE_FILE" ]; then
@@ -106,11 +106,11 @@ if [ "$DURATION" = null ]; then
     exit 1
 fi
 
-if [ -z "$OUTPUT_FMT" ]; then
-    OUTPUT_FMT=$(printf "$DEFAULT_OUTPUT_FMT" "$(echo "%0${#FRAMES_COUNT}d")")
+if [ -z "$OUTPUT" ]; then
+    OUTPUT=$(printf "$DEFAULT_OUTPUT" "$(echo "%0${#FRAMES_COUNT}d")")
 fi
 
-OUTPUT_DIR_="$(dirname "$OUTPUT_FMT")"
+OUTPUT_DIR_="$(dirname "$OUTPUT")"
 if [ ! -d "$OUTPUT_DIR_" ]; then
     if [ $YES -eq 0 ]; then
         printf 'Directory %s not found, create? [Y/n]: ' "$OUTPUT_DIR_"
@@ -132,14 +132,14 @@ if [ $VERBOSE -eq 0 ]; then
 fi
 
 ffmpeg $quiet -i "$INPUT_FILE" -filter:v fps=fps=$FPS \
-    -frames:v $FRAMES_COUNT "$OUTPUT_FMT" || exit 1
+    -frames:v $FRAMES_COUNT "$OUTPUT" || exit 1
 
 if [ $GENERATE_PREVIEW -eq 0 ]; then
     exit 0
 fi
 
 if [ -z "$PREVIEW_OUTPUT" ]; then
-    PREVIEW_OUTPUT="$(dirname "$OUTPUT_FMT")/preview.png"
+    PREVIEW_OUTPUT="$(dirname "$OUTPUT")/preview.png"
 fi
 
 if [ -z "$PREVIEW_TEMPLATE" ]; then
@@ -171,7 +171,7 @@ fi
 print_log "Generating $PREVIEW_TEMPLATE preview '$PREVIEW_OUTPUT'..."
 inputs=
 for i in $(seq 1 $FRAMES_COUNT); do
-    filename="$(printf "$OUTPUT_FMT" $i)"
+    filename="$(printf "$OUTPUT" $i)"
     if [ ! -f "$filename" ]; then
         echo "File '$filename' not found"
         exit 1
