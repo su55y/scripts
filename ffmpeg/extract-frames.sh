@@ -2,7 +2,8 @@
 
 INPUT_FILE=
 FRAMES_COUNT=10
-OUTPUT_FMT=frames/frame%02d.png
+DEFAULT_OUTPUT_FMT=frames/frame%s.png
+OUTPUT_FMT=
 GENERATE_PREVIEW=0
 PREVIEW_OUTPUT=
 PREVIEW_TEMPLATE=
@@ -15,7 +16,7 @@ usage: extract-frames [-i FILE] [-c INT] [-f STR] [-p] [-P PATH] [-t STR] [-v] [
 
 options:
   -c INT       frames count (default: 10)
-  -o STR       frames output (default: frames/frame%02d.png), should include %d format specifier
+  -o STR       frames output (default: frames/frame%d.png), should include %d format specifier
   -h           show this help message and exit
   -i FILE      input file (required)
   -p           generate preview
@@ -103,6 +104,10 @@ DURATION=$(jq -r .format\?.duration\? "$PROBE_FILE")
 if [ "$DURATION" = null ]; then
     echo "Can't get duration from probe $PROBE_FILE"
     exit 1
+fi
+
+if [ -z "$OUTPUT_FMT" ]; then
+    OUTPUT_FMT=$(printf "$DEFAULT_OUTPUT_FMT" "$(echo "%0${#FRAMES_COUNT}d")")
 fi
 
 OUTPUT_DIR_="$(dirname "$OUTPUT_FMT")"

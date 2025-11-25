@@ -10,14 +10,13 @@ import re
 import subprocess as sp
 from pathlib import Path
 from sys import argv
-from typing import Any
 
 
 SILENCE_OPTS = "-hide_banner -loglevel warning -stats"
 MONTAGE_CMD = "montage -geometry +0+0 -tile %s %s %s"
 
 DEFAULT_COUNT = 10
-DEFAULT_OUTPUT = "frames/frame%02d.png"
+DEFAULT_OUTPUT = "frames/frame%d.png"
 DEFAULT_PREVIEW = "preview.png"
 
 
@@ -33,9 +32,8 @@ def parse_args():
     parser.add_argument(
         "-o",
         "--output",
-        default=DEFAULT_OUTPUT,
         metavar="STR",
-        help="frames output (default: %(default)s), should include %%d format specifier",
+        help=f"frames output (default: {DEFAULT_OUTPUT}), should include %%d format specifier",
     )
     parser.add_argument("-p", "--preview", action="store_true", help="generate preview")
     parser.add_argument(
@@ -163,10 +161,7 @@ def validate_output(v: str) -> Path:
             )
         if not path.parent.exists():
             if "-y" not in argv[1:]:
-                resp = input(
-                    "directory '%s' not exists, create? [Y/n]: "
-                    % path.parent.absolute()
-                )
+                resp = input(f"directory '{path.parent}' not exists, create? [Y/n]: ")
                 if resp.lower().startswith("n"):
                     exit(0)
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -184,6 +179,8 @@ if __name__ == "__main__":
     if count < 1:
         raise argparse.ArgumentTypeError("count should be positive number")
 
+    if not args.output:
+        args.output = DEFAULT_OUTPUT.replace("%d", f"%0{len(str(count))}d")
     output = validate_output(args.output)
 
     input_file = Path(args.input).expanduser()
