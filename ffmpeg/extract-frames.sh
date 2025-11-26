@@ -18,7 +18,7 @@ options:
   -c INT       frames count (default: 10)
   -o STR       frames output (default: frames/frame%d.png), should include %d format specifier
   -h           show this help message and exit
-  -i FILE      input file (required)
+  -i FILE      input file ($(printf '\033[1;31m')required$(printf '\033[0m'))
   -p           generate preview
   -P PATH      preview path (default: frames/preview.png)
   -t STR       preview tiling template (default: '{α}x{count/α}', where 'α' is square root of 'count')
@@ -79,7 +79,10 @@ parse_args() {
 
 parse_args "$@"
 
-if [ ! -f "$INPUT_FILE" ]; then
+if [ -z "$INPUT_FILE" ]; then
+    show_help
+    exit 1
+elif [ ! -f "$INPUT_FILE" ]; then
     echo "INPUT_FILE '$INPUT_FILE' not found"
     exit 1
 fi
