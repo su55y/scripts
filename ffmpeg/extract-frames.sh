@@ -150,25 +150,23 @@ if [ -z "$PREVIEW_TEMPLATE" ]; then
     rows=$((FRAMES_COUNT / ${sqrt_count%.*}))
     cols=$((FRAMES_COUNT / rows))
 
-    WIDTH=$(jq -r '.streams[0]?.width?' "$PROBE_FILE")
+    WIDTH=$(jq -r '.streams[0]?.width?' "$PROBE_FILE" || echo null)
     if [ "$WIDTH" = null ]; then
         echo "Can't get width from probe $PROBE_FILE"
         exit 1
     fi
 
-    HEIGHT=$(jq -r '.streams[0]?.height?' "$PROBE_FILE")
+    HEIGHT=$(jq -r '.streams[0]?.height?' "$PROBE_FILE" || echo null)
     if [ "$HEIGHT" = null ]; then
         echo "Can't get height from probe $PROBE_FILE"
         exit 1
     fi
 
+    PREVIEW_TEMPLATE=${cols}x${rows}
     if [ $WIDTH -lt $HEIGHT ] && [ $cols -lt $rows ]; then
-        tmp_cols=$cols
-        cols=$rows
-        rows=$tmp_cols
+        PREVIEW_TEMPLATE=${rows}x${cols}
     fi
 
-    PREVIEW_TEMPLATE=${cols}x${rows}
 fi
 
 print_log "Generating $PREVIEW_TEMPLATE preview '$PREVIEW_OUTPUT'..."
