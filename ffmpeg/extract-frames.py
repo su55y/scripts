@@ -74,7 +74,8 @@ def get_probe(input_file: Path, verbose: bool = False) -> Probe:
 
     if probe_file.exists():
         with open(probe_file) as pf:
-            print("reading probe from cache")
+            if verbose:
+                print(f"Reading probe from {probe_file!s}")
             raw_probe = json.load(pf)
     else:
         probe_cmd = [
@@ -93,9 +94,10 @@ def get_probe(input_file: Path, verbose: bool = False) -> Probe:
             print(" ".join(probe_cmd))
         probe_out = sp.check_output(probe_cmd, stderr=sp.DEVNULL, timeout=10)
         if not probe_out:
-            raise Exception("can't get output from cmd '%s'" % probe_cmd)
+            raise Exception(f"Empty probe cmd output ({probe_cmd})")
         with open(probe_file, "w") as pf:
-            print("writing probe cache")
+            if verbose:
+                print(f"Writing probe to {probe_file!s}")
             pf.write(probe_out.decode())
         raw_probe = json.loads(probe_out)
     format = raw_probe.get("format", dict())
@@ -104,7 +106,7 @@ def get_probe(input_file: Path, verbose: bool = False) -> Probe:
     streams = raw_probe.get("streams", list())
     if not streams or len(streams) != 1:
         raise InvalidProbeFormat(
-            f"input file does not contain video stream: {streams=!r}"
+            f"Input file does not contain video stream: {streams=!r}"
         )
     try:
         return Probe(
@@ -159,11 +161,13 @@ def validate_output(v: str) -> Path:
         path = Path(v)
         if not re.match(r"^.*%(?:0\d)?d\..+$", path.name):
             raise argparse.ArgumentTypeError(
-                f"invalid output value '{path.name}', should include %d format specifier"
+                f"Invalid output value '{path.name}', should include %d format specifier"
             )
         if not path.parent.exists():
             if "-y" not in argv[1:]:
-                resp = input(f"directory '{path.parent}' not exists, create? [Y/n]: ")
+                resp = input(
+                    f"Directory '{path.parent}' does not exists, create? [Y/n]: "
+                )
                 if resp.lower().startswith("n"):
                     exit(0)
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -179,11 +183,13 @@ if __name__ == "__main__":
     args = parse_args()
     count = int(args.count)
     if count < 1:
-        raise argparse.ArgumentTypeError("count should be positive number")
+        raise argparse.ArgumentTypeError(
+            f"Invalid count value {count}, should be positive number"
+        )
 
     input_file = Path(args.input).expanduser()
     if not input_file.exists():
-        print(f"File {input_file} doesn't exist")
+        print(f"Input file {input_file!s} doesn't exist")
         exit(1)
 
     probe = get_probe(input_file, args.verbose)

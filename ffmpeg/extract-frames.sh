@@ -40,16 +40,16 @@ parse_args() {
             FRAMES_COUNT=$OPTARG
             case $FRAMES_COUNT in
             -[[:digit:]]* | 0)
-                echo "FRAMES_COUNT should be > 0"
+                echo "Invalid count value $FRAMES_COUNT, should be positive number"
                 exit 1
                 ;;
             0* | *[!0-9]*)
-                echo "Invalid FRAMES_COUNT value '$FRAMES_COUNT'"
+                echo "Invalid count value $FRAMES_COUNT, should be positive number"
                 exit 1
                 ;;
             [[:digit:]]*) ;;
             *)
-                echo "Invalid FRAMES_COUNT value '$FRAMES_COUNT'"
+                echo "Invalid count value $FRAMES_COUNT, should be positive number"
                 exit 1
                 ;;
             esac
@@ -57,7 +57,7 @@ parse_args() {
         o)
             OUTPUT=$OPTARG
             if ! echo "$OUTPUT" | grep -qP '^.*%\d*d.+$'; then
-                echo "Invalid output value '$OUTPUT', should should include %d format specifier"
+                echo "Invalid output value '$OUTPUT', should include %d format specifier"
                 exit 1
             fi
             ;;
@@ -83,7 +83,7 @@ if [ -z "$INPUT_FILE" ]; then
     show_help
     exit 1
 elif [ ! -f "$INPUT_FILE" ]; then
-    echo "INPUT_FILE '$INPUT_FILE' not found"
+    echo "Input file '$INPUT_FILE' doesn't exist"
     exit 1
 fi
 
@@ -178,7 +178,7 @@ inputs=
 for i in $(seq 1 $FRAMES_COUNT); do
     filename="$(printf "$OUTPUT" $i)"
     if [ ! -f "$filename" ]; then
-        echo "File '$filename' not found"
+        echo "Frame '$filename' not found"
         exit 1
     fi
     inputs="$inputs $filename"
