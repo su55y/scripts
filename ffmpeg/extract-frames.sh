@@ -89,9 +89,6 @@ fi
 
 print_log() { [ $VERBOSE -eq 1 ] && echo "$1"; }
 
-print_log "Extracting $FRAMES_COUNT frames..."
-print_log "Output fmt: '$OUTPUT'..."
-
 PROBE_FILE="${TEMPDIR:-/tmp}/$(head -c 4096 "$INPUT_FILE" | sha256sum | cut -d' ' -f1).probe.json"
 if [ ! -f "$PROBE_FILE" ]; then
     if [ $VERBOSE -eq 1 ]; then
@@ -101,6 +98,11 @@ if [ ! -f "$PROBE_FILE" ]; then
     fi
     ffprobe $quiet -show_format -show_streams \
         -select_streams v:0 -of json "$INPUT_FILE" >"$PROBE_FILE" || exit 1
+fi
+
+if [ "$(jq -r .streams\?[0] "$PROBE_FILE" || echo null)" = null ]; then
+    echo "Input file $INPUT_FILE does not contain video stream"
+    exit 1
 fi
 
 DURATION=$(jq -r .format\?.duration\? "$PROBE_FILE")
@@ -134,6 +136,8 @@ if [ $VERBOSE -eq 0 ]; then
     quiet='-hide_banner -loglevel warning -stats'
 fi
 
+print_log "Extracting $FRAMES_COUNT frames..."
+print_log "Output fmt: '$OUTPUT'..."
 ffmpeg $quiet -i "$INPUT_FILE" -filter:v fps=fps=$FPS \
     -frames:v $FRAMES_COUNT "$OUTPUT" || exit 1
 

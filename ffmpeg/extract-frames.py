@@ -103,7 +103,9 @@ def get_probe(input_file: Path, verbose: bool = False) -> Probe:
         raise InvalidProbeFormat(f"{format=!r}")
     streams = raw_probe.get("streams", list())
     if not streams or len(streams) != 1:
-        raise InvalidProbeFormat(f"{streams=!r}")
+        raise InvalidProbeFormat(
+            f"input file does not contain video stream: {streams=!r}"
+        )
     try:
         return Probe(
             width=int(streams[0]["width"]),
@@ -179,10 +181,6 @@ if __name__ == "__main__":
     if count < 1:
         raise argparse.ArgumentTypeError("count should be positive number")
 
-    if not args.output:
-        args.output = DEFAULT_OUTPUT.replace("%d", f"%0{len(str(count))}d")
-    output = validate_output(args.output)
-
     input_file = Path(args.input).expanduser()
     if not input_file.exists():
         print(f"File {input_file} doesn't exist")
@@ -191,6 +189,10 @@ if __name__ == "__main__":
     probe = get_probe(input_file, args.verbose)
     fps = round(count / probe.duration, 3)
     verbosity = "" if args.verbose else SILENCE_OPTS
+
+    if not args.output:
+        args.output = DEFAULT_OUTPUT.replace("%d", f"%0{len(str(count))}d")
+    output = validate_output(args.output)
 
     cmd = [
         "ffmpeg",
