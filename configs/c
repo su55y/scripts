@@ -29,14 +29,15 @@ choice="$(find -L "$CONFIG_DIR" -maxdepth 1 -printf '%f\n' |
     grep -P '^[^\.].+$' | $C_FZF_CMD "$@")"
 
 [ -n "$choice" ] || exit 0
+choice="$CONFIG_DIR/$choice"
 
 is_single_file_() {
-    set -- "$CONFIG_DIR/$choice"/* 2>/dev/null
-    [ $# -eq 1 ] && echo "$1"
+    if [ -d "$choice" ]; then
+        set -- "$choice"/* 2>/dev/null
+        [ $# -eq 1 ] && echo "$1"
+    fi
 }
 single_file_="$(is_single_file_)"
-if [ -f "$single_file_" ]; then
-    eval "$C_EDITOR_CMD $single_file_"
-else
-    eval "$C_EDITOR_CMD $CONFIG_DIR/$choice/"
-fi
+[ -f "$single_file_" ] && choice="$single_file_"
+
+eval "$C_EDITOR_CMD $choice"
