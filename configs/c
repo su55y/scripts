@@ -14,7 +14,6 @@ if [ ! -d "$CONFIG_DIR" ]; then
     exit 1
 fi
 
-
 inp=
 if [ -n "$1" ]; then
     inp="$1"
@@ -31,4 +30,13 @@ choice="$(find -L "$CONFIG_DIR" -maxdepth 1 -printf '%f\n' |
 
 [ -n "$choice" ] || exit 0
 
-"$CONFIG_EDITOR" "$CONFIG_DIR/$choice"
+is_single_file_() {
+    set -- "$CONFIG_DIR/$choice"/* 2>/dev/null
+    [ $# -eq 1 ] && echo "$1"
+}
+single_file_="$(is_single_file_)"
+if [ -f "$single_file_" ]; then
+    "$CONFIG_EDITOR" "$single_file_"
+else
+    "$CONFIG_EDITOR" "$CONFIG_DIR/$choice"
+fi
