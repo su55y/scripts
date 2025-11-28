@@ -1,10 +1,10 @@
 #!/bin/sh
 
 : "${C_FZF_CMD:=fzf --preview=}"
+: "${C_EDITOR_CMD:=$EDITOR}"
 
-: "${CONFIG_EDITOR:=$EDITOR}"
-if [ -z "$CONFIG_EDITOR" ]; then
-    echo 'CONFIG_EDITOR and EDITOR variables are not set'
+if [ -z "$C_EDITOR_CMD" ]; then
+    echo 'C_EDITOR_CMD and EDITOR variables are not set'
     exit 1
 fi
 
@@ -36,7 +36,7 @@ is_single_file_() {
 }
 single_file_="$(is_single_file_)"
 if [ -f "$single_file_" ]; then
-    "$CONFIG_EDITOR" "$single_file_"
+    eval "$C_EDITOR_CMD $single_file_"
 else
-    "$CONFIG_EDITOR" "$CONFIG_DIR/$choice"
+    eval "$C_EDITOR_CMD $CONFIG_DIR/$choice/"
 fi
