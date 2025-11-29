@@ -34,9 +34,9 @@ parse_args() {
 
 parse_args "$@"
 
-config_editor="${CONFIG_EDITOR:-$EDITOR}"
-if [ -z "$config_editor" ]; then
-    echo "CONFIG_EDITOR and EDITOR variables are not set"
+C_EDITOR_CMD="${C_EDITOR_CMD:-$EDITOR}"
+if [ -z "$C_EDITOR_CMD" ]; then
+    echo "C_EDITOR_CMD and EDITOR variables are not set"
     exit 1
 fi
 
@@ -55,4 +55,4 @@ if [ ! -f "$file_to_edit" ]; then
     exit 1
 fi
 
-"$config_editor" "$file_to_edit"
+eval "$C_EDITOR_CMD $file_to_edit"
