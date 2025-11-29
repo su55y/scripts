@@ -1,58 +1,14 @@
 #!/bin/sh
 
-show_help() {
-    cat <<EOF
-Usage: $0 [-e CONFIG_SECTION]
-
-Options:
-  -e  edit given config file ([a]liases | [ab]breviations | [b]indings | [p]rofile | [w]idgets)
-  -h  show this message
-EOF
-}
-
-config_section=""
-
-parse_args() {
-    OPTIND=1
-    while getopts "he:" opt; do
-        case "$opt" in
-        h)
-            show_help
-            exit 0
-            ;;
-        e) config_section=$OPTARG ;;
-        *)
-            show_help
-            exit 1
-            ;;
-        esac
-    done
-
-    shift $((OPTIND - 1))
-    [ "${1:-}" = "--" ] && shift
-}
-
-parse_args "$@"
-
+C_FZF_CMD="${C_FZF_CMD:=fzf --preview=}"
 C_EDITOR_CMD="${C_EDITOR_CMD:-$EDITOR}"
 if [ -z "$C_EDITOR_CMD" ]; then
     echo "C_EDITOR_CMD and EDITOR variables are not set"
     exit 1
 fi
 
-file_to_edit="$ZDOTDIR/.zshrc"
+choice="$(find -L "$ZDOTDIR" -maxdepth 1 -type f  -printf '%f\n' |
+    grep -P '^[^\.].+$' | $C_FZF_CMD)"
+[ -n "$choice" ] || choice=.zshrc
 
-case $config_section in
-ab) file_to_edit="$ZDOTDIR/abbreviations" ;;
-a) file_to_edit="$ZDOTDIR/aliases" ;;
-b) file_to_edit="$ZDOTDIR/bindings" ;;
-p) file_to_edit="$ZDOTDIR/profile" ;;
-w) file_to_edit="$ZDOTDIR/widgets" ;;
-esac
-
-if [ ! -f "$file_to_edit" ]; then
-    echo "'$file_to_edit' not found"
-    exit 1
-fi
-
-eval "$C_EDITOR_CMD $file_to_edit"
+eval "$C_EDITOR_CMD $ZDOTDIR/$choice"
