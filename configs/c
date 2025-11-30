@@ -1,6 +1,6 @@
 #!/bin/sh
 
-: "${C_FZF_CMD:=fzf --preview=}"
+: "${C_FZF_CMD:=fzf --preview= --delimiter=\/ --with-nth=-1}"
 : "${C_EDITOR_CMD:=$EDITOR}"
 
 if [ -z "$C_EDITOR_CMD" ]; then
@@ -25,11 +25,10 @@ fi
 
 [ -n "$inp" ] && set -- -q "$inp"
 
-choice="$(find -L "$CONFIG_DIR" -maxdepth 1 -printf '%f\n' |
-    grep -P '^[^\.].+$' | $C_FZF_CMD "$@")"
+choice="$(find -L "$CONFIG_DIR" -maxdepth 1 |
+    grep -v "^$CONFIG_DIR$" | $C_FZF_CMD "$@")"
 
 [ -n "$choice" ] || exit 0
-choice="$CONFIG_DIR/$choice"
 
 is_single_file_() {
     if [ -d "$choice" ]; then
