@@ -1,14 +1,14 @@
 #!/bin/sh
 
-C_FZF_CMD="${C_FZF_CMD:=fzf --preview=}"
+C_FZF_CMD="${C_FZF_CMD:=fzf --preview= --delimiter=\/ --with-nth=-1}"
 C_EDITOR_CMD="${C_EDITOR_CMD:-$EDITOR}"
 if [ -z "$C_EDITOR_CMD" ]; then
     echo "C_EDITOR_CMD and EDITOR variables are not set"
     exit 1
 fi
 
-choice="$(find -L "$ZDOTDIR" -maxdepth 1 -type f  -printf '%f\n' |
-    grep -P '^[^\.].+$' | $C_FZF_CMD)"
-[ -n "$choice" ] || choice=.zshrc
+set -- --header='Edit .zshrc by default'
+choice="$(find -L "$ZDOTDIR" -maxdepth 1 -type f |
+    grep -P "^$ZDOTDIR\/[^\.].+$" | $C_FZF_CMD "$@")"
 
-eval "$C_EDITOR_CMD $ZDOTDIR/$choice"
+eval "$C_EDITOR_CMD ${choice:=$ZDOTDIR/.zshrc}"
