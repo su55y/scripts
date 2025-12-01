@@ -7,10 +7,17 @@ err_msg() {
 
 [ -n "$1" ] || err_msg "no input url"
 
-base_file="$(printf 'article%s' "$(tr -dc a-z0-9 </dev/urandom | head -c 8)")"
-article="/tmp/${base_file}.html"
-clean_article="/tmp/clean_${base_file}.html"
-pdf_article="/tmp/${base_file}.pdf"
+TEMPDIR="${TEMPDIR:-/tmp}"
+
+base_file="article$(echo "$1" | sha1sum | cut -d' ' -f1).html"
+article="$TEMPDIR/${base_file}.html"
+clean_article="$TEMPDIR/clean_${base_file}.html"
+pdf_article="$TEMPDIR/${base_file}.pdf"
+
+if [ -f "$pdf_article" ]; then
+    setsid -f zathura "$pdf_article" >/dev/null 2>&1
+    exit 0
+fi
 
 cleanup() {
     [ -f "$article" ] && rm "$article"
@@ -18,7 +25,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
+notify-send -i newsboat -a "$(basename "$0")" "Converting $1 to pdf..."
 wget "$1" -q -O "$article" || err_msg "can't downlaod by url '$1'"
 rdrview -T title,body -H -u "$1" <"$article" >"$clean_article" 2>/dev/null || err_msg "readability conversion error"
 pandoc "$clean_article" -t ms -o "$pdf_article" 2>/dev/null || err_msg "pandoc error"
-setsid -f zathura "$pdf_article" >/dev/null 2>&1 || err_msg "can't open in zathura"
+setsid -f zathura "$pdf_article" >/dev/null 2>&1 || err_msg "can't open $pdf_article"
