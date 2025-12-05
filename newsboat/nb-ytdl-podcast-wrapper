@@ -5,15 +5,15 @@
 
 url="$1"
 if [ -z "$url" ]; then
-    notify-send -i newsboat -a "$(basename $0)" 'Url not passed'
+    notify-send -i newsboat -a "$(basename "$0")" 'Url not passed'
     exit 1
 fi
 
 if ! command -v nb-ytdl-podcast >/dev/null 2>&1; then
-    notify-send -i newsboat -a "$(basename $0)" 'nb-ytdl-podcast not in PATH'
+    notify-send -i newsboat -a "$(basename "$0")" 'nb-ytdl-podcast not in PATH'
     exit 1
 fi
 
-notify-send -i newsboat -a newsboat "⬇️Queuing download '$url'..."
+notify-send -i newsboat -a "$(basename "$0")" "⬇️Queuing download '$url'..."
 qid="$(RATIO=$RATIO tsp $TSP_OPTS nb-ytdl-podcast "$url")"
-tsp -n -D "$qid" notify-send -i newsboat -a "$(basename $0)" "✅Download done: '$url'" >/dev/null
+tsp -n -D "$qid" notify-send -i newsboat -a "$(basename "$0")" "✅Download done: '$url'" >/dev/null
