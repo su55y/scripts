@@ -88,11 +88,11 @@ elif echo "$url" | grep -qP '^(?:https\:\/\/)?(?:www\.)?music\.youtube\.com\/wat
     echo "$ytdl_opts" | grep -qE -- '-f [^ ]+' || ytdl_opts="$ytdl_opts -f ba"
 elif echo "$url" | grep -qP '^(?:https\:\/\/)?soundcloud\.com/[^\/]+\/sets\/.+'; then
     is_sc_playlist=1
-    echo "$ytdl_opts" | grep -qE -- '-f [^ ]+' || ytdl_opts="$ytdl_opts -f ba"
+    echo "$ytdl_opts" | grep -qE -- '-f [^ ]+' || ytdl_opts="$ytdl_opts -t mp3"
 elif echo "$url" | grep -qP '(?:https\:\/\/)?soundcloud\.com\/.+'; then
     is_sc_music=1
     echo "$ytdl_opts" | grep -qE -- '--no-playlist' || ytdl_opts="$ytdl_opts --no-playlist"
-    echo "$ytdl_opts" | grep -qE -- '-f [^ ]+' || ytdl_opts="$ytdl_opts -f ba"
+    echo "$ytdl_opts" | grep -qE -- '-f [^ ]+' || ytdl_opts="$ytdl_opts -t mp3"
 else
     url_="$(echo "$url" | grep -oP '^(?:https://)?((?:www\.)?(?:music\.)?youtu(?:be\.com/watch\?(?:.*)v=|\.be/|be\.com/shorts/))[-_0-9a-zA-z]{11}')"
     [ -z "$url_" ] && die "invalid url '$url'"
