@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# shellcheck disable=SC2086
+
 url="$1"
 if [ -z "$url" ]; then
     echo "url not passed"
@@ -14,26 +16,31 @@ echo "$url" |
 
 yt-dlp -F "$url"
 
-printf 'choose format (default: '%s'): ' "$DEFAULT_FORMAT"
+printf "choose format (default: '%s'): " "$DEFAULT_FORMAT"
 read -r format
 [ -n "$format" ] || format="$DEFAULT_FORMAT"
 
-printf 'choose output (t for title, default: '%s'): ' "$DEFAULT_OUTPUT"
+printf "choose output (t for title, default: '%s'): " "$DEFAULT_OUTPUT"
 read -r out
 [ -n "$out" ] || out="$DEFAULT_OUTPUT"
 case $out in
 t) out="%(title)s.%(ext)s" ;;
 esac
 
+ytdlp_opts=
+printf "extra yt-dlp options (default: '%s'): " "$ytdlp_opts"
+read -r extra_ytdlp_opts
+[ -n "$extra_ytdlp_opts" ] && ytdlp_opts="${ytdlp_opts} ${extra_ytdlp_opts}"
+
 printf 'run with tsp? (y/N): '
 read -r use_tsp
 case $use_tsp in
 y)
     notify-send -i newsboat -a newsboat "⬇️Start downloading '$url'..."
-    qid="$(tsp yt-dlp "$url" -f "$format" -o "$out")"
+    qid="$(tsp yt-dlp "$url" -f "$format" -o "$out" $ytdlp_opts)"
     tsp -D "$qid" notify-send -i newsboat -a newsboat "✅Download done: '$url'" >/dev/null
     ;;
 *)
-    yt-dlp "$url" -f "$format" -o "$out"
+    yt-dlp "$url" -f "$format" -o "$out" $ytdlp_opts
     ;;
 esac
