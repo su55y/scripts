@@ -13,7 +13,7 @@ DEFAULT_M_PL_OUTPUT="$HOME/Music/YouTube/%(uploader)s/%(playlist_title)s/%(playl
 DEFAULT_M_OUTPUT="$HOME/Music/YouTube/%(uploader)s - %(title)s.%(ext)s"
 DEFAULT_SC_OUTPUT="$HOME/Music/SC/%(title)s.%(ext)s"
 DEFAULT_SC_PL_OUTPUT="$HOME/Music/SC/%(uploader)s/%(playlist_title)s/%(playlist_index)d %(title)s.%(ext)s"
-DEFAULT_OTHER_OUTPUT="$HOME/Videos/Other/%(title)s [%(channel_id)s-%(id)s].%(ext)s"
+DEFAULT_OTHER_OUTPUT="$HOME/Videos/Other/%(title).128B [%(channel_id)s %(id)s].%(ext)s"
 HISTORY_DB="${XDG_DATA_HOME:-$HOME/.local/share}/playlist_ctl/playlist_ctl.db"
 
 show_help() {
