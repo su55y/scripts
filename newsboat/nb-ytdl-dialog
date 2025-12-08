@@ -13,10 +13,9 @@ DEFAULT_OUTPUT="$HOME/Videos/YouTube/%(uploader)s/%(title)s.%(ext)s"
 if echo "$url" |
     grep -qP '^(?:https\:\/\/)?(?:www\.)?(youtube\.com\/playlist\?list=[A-Za-z0-9\-_]{18,34})'; then
     DEFAULT_OUTPUT="$HOME/Videos/YouTube/%(uploader)s/%(playlist_title)s/%(playlist_index)d %(title)s.%(ext)s"
-    yt-dlp -sF -I :1 "$url"
-else
-    yt-dlp -F "$url"
 fi
+
+yt-dlp -sF -I:1 "$url"
 
 printf "choose format (default: '%s'): " "$DEFAULT_FORMAT"
 read -r format
