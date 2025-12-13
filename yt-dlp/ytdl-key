@@ -136,8 +136,7 @@ if [ $is_now -eq 1 ]; then
     yt-dlp $ytdl_opts "$url" -o "$output" || die "❌Download failed: '$title'"
 else
     notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "⬇️Start downloading '$title'..."
-    qid="$(tsp $tsp_opts yt-dlp $ytdl_opts "$url" -o "$output" ||
-        notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "❌Download failed")"
+    qid="$(tsp $tsp_opts yt-dlp $ytdl_opts "$url" -o "$output")"
     tsp -D "$qid" notify-send -i "$YTDL_KEY_ICON" -a yt-dlp "✅Download done: '$title'"
 fi
 
