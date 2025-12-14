@@ -2,14 +2,17 @@
 
 import argparse
 import os
+import json
 from pathlib import Path
 import re
-import requests
 import subprocess as sp
 import sqlite3
 import tempfile
 import time
 from typing import Dict
+from urllib.request import urlopen
+
+from requests import HTTPError
 
 APP_NAME = os.path.basename(__file__)
 POLLING_TIMEOUT = int(os.environ.get("POLLING_TIMEOUT", 15))
@@ -72,16 +75,17 @@ def run_mpv(url):
             break
 
 
-def fetch_title(url):
+def fetch_title(url: str) -> str | None:
     try:
-        resp = requests.get(f"https://youtube.com/oembed?url={url}&format=json")
-        resp.raise_for_status()
-        return resp.json().get("title")
+        with urlopen(f"https://youtube.com/oembed?url={url}&format=json") as resp:
+            if resp.status != 200:
+                raise HTTPError(resp.url, resp.status, resp.reason, resp.headers, None)
+            return json.load(resp).get("title")
     except Exception as e:
         notify(f"ERROR: can't fetch title for {url!r}: {e}")
 
 
-def fetch_title_yt_dlp(url):
+def fetch_title_yt_dlp(url: str) -> str | None:
     try:
         from yt_dlp import YoutubeDL
     except ImportError:
@@ -94,14 +98,10 @@ def fetch_title_yt_dlp(url):
         return info.get("title")
 
 
-def get_title(url):
-    if rx_yt_url.match(url):
-        return fetch_title(url)
-    if rx_yt_dlp_title.match(url):
-        return fetch_title_yt_dlp(url)
-
-
-def update_history(db, url, title):
+def update_history(db: Path, url: str, title: str) -> None:
+    if not db.expanduser().exists():
+        notify(f"{db} not exists")
+        return
     try:
         with sqlite3.connect(db) as conn:
             cur = conn.cursor()
@@ -113,7 +113,7 @@ def update_history(db, url, title):
         notify(f"DB ERROR: {e}")
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(APP_NAME)
     parser.add_argument("url", nargs="?")
     parser.add_argument(
@@ -121,6 +121,12 @@ def parse_args():
         "--history-database",
         type=Path,
         help="playlist-ctl compatible database path",
+    )
+    parser.add_argument(
+        "-t",
+        action="store_true",
+        dest="use_title",
+        help="notify with video title instead of url",
     )
     return parser.parse_args()
 
@@ -137,13 +143,15 @@ if __name__ == "__main__":
         notify(f"ERROR: invalid url {url!r}")
         exit(1)
 
-    title = ""
+    title = url
+    if args.use_title:
+        if rx_yt_url.match(url):
+            title = fetch_title(url) or url
+        elif rx_yt_dlp_title.match(url):
+            title = fetch_title_yt_dlp(url) or url
+
     if args.history_database:
-        if not args.history_database.expanduser().exists():
-            notify(f"{args.history_database} not exists")
-            exit(1)
-        title = get_title(url) or url
-        update_history(str(args.history_database), url, title)
+        update_history(args.history_database, url, title)
 
     notify(title or url)
     run_mpv(url)
