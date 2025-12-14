@@ -24,24 +24,25 @@ rx_yt_url = re.compile(
 rx_yt_dlp_title = re.compile(r".*twitch\.tv\/videos\/\d{10}")
 
 
-def write_tmp_log(msg):
+def write_tmp_log(msg: str) -> None:
     temp_dir = Path(tempfile.gettempdir())
     if not temp_dir.exists() or not temp_dir.is_dir():
         return
     log_file_path = temp_dir / f"{APP_NAME}_{time.strftime('%d_%m_%y')}.log"
     with open(log_file_path, "a") as f:
-        f.write("%s: %s\n" % (time.strftime("%T"), msg))
+        f.write(f"{time.strftime('%T')} {msg}\n")
 
 
-def notify(msg):
+def notify(msg: str) -> None:
     try:
-        if (c := sp.run(["notify-send", "-a", APP_NAME, msg]).returncode) != 0:
-            raise Exception("notify-send exit code %d" % c)
+        p = sp.run(["notify-send", "-i", "mpv", "-a", APP_NAME, msg])
+        if p.returncode != 0:
+            raise Exception(f"notify-send exit code {p.returncode}")
     except Exception as e:
-        write_tmp_log("ERROR: can't notify with msg: %r, error: %s" % (msg, e))
+        write_tmp_log(f"ERROR: {e} ({msg=!r})")
 
 
-def read_from_cb():
+def read_from_cb() -> str | None:
     try:
         return sp.run(
             ["xclip", "-o", "-selection", "clipboard"],
@@ -49,7 +50,7 @@ def read_from_cb():
             text=True,
         ).stdout.strip()
     except Exception as e:
-        notify("ERROR: %s" % e)
+        notify(f"ERROR: {e}")
 
 
 def run_mpv(url):
@@ -61,23 +62,23 @@ def run_mpv(url):
             start_new_session=True,
         )
     except Exception as e:
-        notify("ERROR: %s" % e)
+        notify(f"ERROR: {e}")
         exit(1)
     for _ in range(0, POLLING_TIMEOUT, POLLING_INTERVAL):
         time.sleep(POLLING_INTERVAL)
         if p.poll() is not None:
             if p.returncode != 0:
-                notify("ERROR: mpv exit code %d" % p.returncode)
+                notify(f"ERROR: mpv exit code {p.returncode}")
             break
 
 
 def fetch_title(url):
     try:
-        resp = requests.get("https://youtube.com/oembed?url=%s&format=json" % url)
+        resp = requests.get(f"https://youtube.com/oembed?url={url}&format=json")
         resp.raise_for_status()
         return resp.json().get("title")
     except Exception as e:
-        notify("ERROR: can't fetch title for %r: %s" % (url, e))
+        notify(f"ERROR: can't fetch title for {url!r}: {e}")
 
 
 def fetch_title_yt_dlp(url):
@@ -88,7 +89,7 @@ def fetch_title_yt_dlp(url):
     with YoutubeDL() as ytdl:
         info = ytdl.extract_info(url, download=False)
         if not info or not isinstance(info, Dict):
-            notify("invalid yt-dlp info type %s" % type(info))
+            notify(f"ERROR: invalid yt-dlp info type {type(info)}")
             return
         return info.get("title")
 
@@ -109,7 +110,7 @@ def update_history(db, url, title):
                 (url, title, time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())),
             )
     except Exception as e:
-        notify("DB ERROR: %s" % e)
+        notify(f"DB ERROR: {e}")
 
 
 def parse_args():
@@ -133,7 +134,7 @@ if __name__ == "__main__":
         exit(1)
 
     if not rx_url.match(url):
-        notify("ERROR: invalid url %r" % url)
+        notify(f"ERROR: invalid url {url!r}")
         exit(1)
 
     title = ""

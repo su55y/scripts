@@ -7,7 +7,7 @@ title=
 use_title=0
 url="$(xclip -o -selection clipboard)"
 
-notify() { notify-send -a $(basename "$0") "$1"; }
+notify() { notify-send -i mpv -a $(basename "$0") "$1"; }
 
 if [ -z "$url" ]; then
     notify 'no url in clipboard'
@@ -72,8 +72,12 @@ if [ -z "$title" ] || [ "$title" = null ]; then
     title="$url"
 fi
 
+play() {
+    setsid -f mpv "$url" >/dev/null 2>&1
+}
+play
+
 notify "$title"
-setsid -f mpv "$url" >/dev/null 2>&1
 
 if [ "$use_history" -eq 1 ]; then
     if [ ! -f "$HISTORY_DB" ]; then
