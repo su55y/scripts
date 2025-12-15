@@ -12,11 +12,15 @@ import time
 from typing import Dict
 from urllib.request import urlopen
 
-from requests import HTTPError
-
 APP_NAME = os.path.basename(__file__)
+
 POLLING_TIMEOUT = int(os.environ.get("POLLING_TIMEOUT", 15))
 POLLING_INTERVAL = int(os.environ.get("POLLING_INTERVAL", 1))
+DEFAULT_HISTORY_DB_PATH = (
+    Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
+    / "playlist_ctl/playlist_ctl.db"
+)
+HISTORY_DB_PATH = Path(os.environ.get("HISTORY_DB", DEFAULT_HISTORY_DB_PATH))
 
 rx_url = re.compile(
     r".*youtube\.com\/watch\?v=([\w\d_\-]{11})|.*youtu\.be\/([\w\d_\-]{11})|.*twitch\.tv\/videos\/(\d{10})$"
@@ -79,7 +83,7 @@ def fetch_title(url: str) -> str | None:
     try:
         with urlopen(f"https://youtube.com/oembed?url={url}&format=json") as resp:
             if resp.status != 200:
-                raise HTTPError(resp.url, resp.status, resp.reason, resp.headers, None)
+                raise Exception(f"{resp.status} {resp.reason} {resp.url}")
             return json.load(resp).get("title")
     except Exception as e:
         notify(f"ERROR: can't fetch title for {url!r}: {e}")
@@ -98,12 +102,12 @@ def fetch_title_yt_dlp(url: str) -> str | None:
         return info.get("title")
 
 
-def update_history(db: Path, url: str, title: str) -> None:
-    if not db.expanduser().exists():
-        notify(f"{db} not exists")
+def update_history(url: str, title: str) -> None:
+    if not HISTORY_DB_PATH.expanduser().exists():
+        notify(f"{HISTORY_DB_PATH} not exists")
         return
     try:
-        with sqlite3.connect(db) as conn:
+        with sqlite3.connect(HISTORY_DB_PATH) as conn:
             cur = conn.cursor()
             cur.execute(
                 "INSERT OR IGNORE INTO titles (url, title, created) VALUES (?, ?, ?)",
@@ -117,10 +121,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(APP_NAME)
     parser.add_argument("url", nargs="?")
     parser.add_argument(
-        "-d",
-        "--history-database",
-        type=Path,
-        help="playlist-ctl compatible database path",
+        "-H",
+        action="store_true",
+        dest="use_history",
+        help="log history to playlist-ctl compatible database",
     )
     parser.add_argument(
         "-t",
@@ -150,8 +154,8 @@ if __name__ == "__main__":
         elif rx_yt_dlp_title.match(url):
             title = fetch_title_yt_dlp(url) or url
 
-    if args.history_database:
-        update_history(args.history_database, url, title)
+    if args.use_history:
+        update_history(url, title)
 
     notify(title or url)
     run_mpv(url)
