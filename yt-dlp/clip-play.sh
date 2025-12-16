@@ -5,14 +5,9 @@ HISTORY_DB="${XDG_DATA_HOME:-$HOME/.local/share}/playlist_ctl/playlist_ctl.db"
 use_history=0
 title=
 use_title=0
-url="$(xclip -o -selection clipboard)"
+url="$(xclip -o -selection clipboard 2>/dev/null)"
 
 notify() { notify-send -i mpv -a $(basename "$0") "$1"; }
-
-if [ -z "$url" ]; then
-    notify 'no url in clipboard'
-    exit 1
-fi
 
 show_help() {
     cat <<EOF
@@ -45,6 +40,11 @@ parse_args() {
 }
 
 parse_args "$@"
+
+if [ -z "$url" ]; then
+    notify 'no url in clipboard'
+    exit 1
+fi
 
 is_twitch=0
 if echo "$url" | grep -qP '^(?:https\:\/\/)?(?:www\.)?twitch\.tv\/videos\/[0-9]{10}'; then
