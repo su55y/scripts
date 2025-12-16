@@ -7,12 +7,11 @@ from pathlib import Path
 import re
 import subprocess as sp
 import sqlite3
-import tempfile
 import time
-from typing import Dict
 from urllib.request import urlopen
 
 APP_NAME = os.path.basename(__file__)
+READ_CB_CMD = ["xclip", "-o", "-selection", "clipboard"]
 
 POLLING_TIMEOUT = int(os.environ.get("POLLING_TIMEOUT", 15))
 POLLING_INTERVAL = int(os.environ.get("POLLING_INTERVAL", 1))
@@ -31,31 +30,16 @@ rx_yt_url = re.compile(
 rx_yt_dlp_title = re.compile(r".*twitch\.tv\/videos\/\d{10}")
 
 
-def write_tmp_log(msg: str) -> None:
-    temp_dir = Path(tempfile.gettempdir())
-    if not temp_dir.exists() or not temp_dir.is_dir():
-        return
-    log_file_path = temp_dir / f"{APP_NAME}_{time.strftime('%d_%m_%y')}.log"
-    with open(log_file_path, "a") as f:
-        f.write(f"{time.strftime('%T')} {msg}\n")
-
-
 def notify(msg: str) -> None:
     try:
-        p = sp.run(["notify-send", "-i", "mpv", "-a", APP_NAME, msg])
-        if p.returncode != 0:
-            raise Exception(f"notify-send exit code {p.returncode}")
+        _ = sp.run(["notify-send", "-i", "mpv", "-a", APP_NAME, msg])
     except Exception as e:
-        write_tmp_log(f"ERROR: {e} ({msg=!r})")
+        print(f"ERROR: {e} (notify)")
 
 
 def read_from_cb() -> str | None:
     try:
-        return sp.run(
-            ["xclip", "-o", "-selection", "clipboard"],
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
+        return sp.run(READ_CB_CMD, capture_output=True, text=True).stdout.strip()
     except Exception as e:
         notify(f"ERROR: {e}")
 
@@ -96,7 +80,7 @@ def fetch_title_yt_dlp(url: str) -> str | None:
         return
     with YoutubeDL() as ytdl:
         info = ytdl.extract_info(url, download=False)
-        if not info or not isinstance(info, Dict):
+        if not info or not isinstance(info, dict):
             notify(f"ERROR: invalid yt-dlp info type {type(info)}")
             return
         return info.get("title")
@@ -118,8 +102,15 @@ def update_history(url: str, title: str) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(APP_NAME)
-    parser.add_argument("url", nargs="?")
+    parser = argparse.ArgumentParser(
+        APP_NAME,
+        description='this script runs `mpv "$(xclip -o -selection clipboard)"`',
+    )
+    parser.add_argument(
+        "url",
+        nargs="?",
+        help=f"optional, otherwise read from `{' '.join(READ_CB_CMD)}`",
+    )
     parser.add_argument(
         "-H",
         action="store_true",
