@@ -104,13 +104,10 @@ def update_history(url: str, title: str) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         APP_NAME,
+        add_help=False,
         description='this script runs `mpv "$(xclip -o -selection clipboard)"`',
     )
-    parser.add_argument(
-        "url",
-        nargs="?",
-        help=f"optional, otherwise read from `{' '.join(READ_CB_CMD)}`",
-    )
+    parser.add_argument("-h", action="help", help="show this help message and exit")
     parser.add_argument(
         "-H",
         action="store_true",
@@ -129,9 +126,9 @@ def parse_args() -> argparse.Namespace:
 if __name__ == "__main__":
     args = parse_args()
 
-    url = args.url or read_from_cb()
+    url = read_from_cb()
     if not url:
-        notify("ERROR: url not provided")
+        notify("ERROR: no url in clipboard")
         exit(1)
 
     if not rx_url.match(url):

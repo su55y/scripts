@@ -11,13 +11,14 @@ notify() { notify-send -i mpv -a $(basename "$0") "$1"; }
 
 show_help() {
     cat <<EOF
-usage: $(basename "$0") [-h] [-t] [-H]
+usage: $(basename "$0") [-h] [-H] [-t]
 
 this script runs \`mpv "\$(xclip -o -selection clipboard)"\`
 
 options:
-  -t  notify with video title instead of url
+  -h  show this help message and exit
   -H  log history to playlist-ctl compatible database
+  -t  notify with video title instead of url
 EOF
 }
 
