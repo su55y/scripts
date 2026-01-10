@@ -17,15 +17,17 @@ cmd="$4"
 [ "$error" -eq 0 ] && exit 0
 
 # verify that job has target label
-pattern="^$jobid\s+(running|finished)\s+[^\s]+\s+\[$JOB_LABEL\]\K(yt-dlp.+)$"
-[ "$(tsp -l | grep -oP "$pattern")" = "$cmd" ] || exit 0
+#         ID       State      Output                  Command
+pattern="^$jobid\s+running\s+[^\s]+\s+\[$JOB_LABEL\]\K(.+)$"
+[ "$(tsp | grep -oP "$pattern")" = "$cmd" ] || exit 0
 
 trynum="$(grep -cx "$cmd" $FAILED_JOBS_HISTORY)"
 if [ $trynum -gt $MAX_RETRIES ]; then
     exit 0
 elif [ $trynum = $MAX_RETRIES ]; then
-    printf "%s [%s] Giving up on '%s' after %s retries" \
-        "$(date +%T)" "$jobid" "$cmd" "$trynum" >>$LOG_FILE
+    msg="Giving up after $trynum tries on '$cmd'"
+    notify-send -a tsp-fail-handler "$msg"
+    printf "%s [%s] %s\n" "$(date +%T)" "$jobid" "$msg" >>$LOG_FILE
     exit 0
 fi
 
