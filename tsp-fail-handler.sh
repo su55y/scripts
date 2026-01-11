@@ -2,12 +2,15 @@
 
 # export TS_ONFINISH=tsp-fail-handler.sh
 
-[ $# -eq 4 ] || exit 0
-
 LOG_FILE=/tmp/tsp_fail_handler.log
 FAILED_JOBS_HISTORY=/tmp/tsp_failed_jobs_history.log
 MAX_RETRIES=3
 JOB_LABEL=pytfeeder
+
+if [ $# -ne 4 ]; then
+    printf "%s Unexpected argc %d (%s)\n" "$(date +%T)" $# "$*" >>$LOG_FILE
+    exit 0
+fi
 
 jobid="$1"
 error="$2"
