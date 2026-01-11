@@ -3,20 +3,30 @@
 from pathlib import Path
 import os
 import subprocess as sp
+import sys
 
-notify = lambda msg: sp.run(
-    ["notify-send", "-i", "newsboat", "-a", "newsboat updates", msg]
-)
+
+def notify(msg: str) -> None:
+    try:
+        sp.run(
+            ["notify-send", "-i", "newsboat", "-a", "newsboat updates", msg],
+            stdout=sp.DEVNULL,
+            stderr=sp.DEVNULL,
+        )
+    except Exception as e:
+        print(e)
+        sys.exit(1)
+
 
 DATA_HOME = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
 if not DATA_HOME.exists():
     notify("%s not found" % DATA_HOME)
-    exit(1)
+    sys.exit(1)
 
 DB_PATH = DATA_HOME / "newsboat/cache.db"
 if not DB_PATH.exists():
     notify("%s not found" % DB_PATH)
-    exit(1)
+    sys.exit(1)
 
 import sqlite3
 from threading import Thread
