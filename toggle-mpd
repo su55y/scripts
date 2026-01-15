@@ -4,12 +4,14 @@ start_mpd() {
     mpd
 }
 
+notify() { [ -n "$1" ] && notify-send -i mpd -a "$(basename "$0")" "$1"; }
+
 if ! pidof mpd >/dev/null; then
     if ! start_mpd && [ -z "$(pidof mpd)" ]; then
-        notify-send -a mpd-toggle "can't start mpd"
+        notify "can't start mpd"
     else
-        notify-send -a mpd-toggle 'mpd started'
+        notify 'mpd started'
     fi
 else
-    killall mpd && notify-send -a mpd-toggle 'mpd killed'
+    killall mpd && notify 'mpd killed'
 fi
