@@ -75,7 +75,7 @@ def parse_agrs() -> argparse.Namespace:
         "--resolution",
         type=validate_resolution,
         default=DEFAULT_RESOLUTION,
-        help=f"clip resolution (default: %(default)s)",
+        help="clip resolution (default: %(default)s)",
     )
     parser.add_argument(
         "-o",
@@ -96,7 +96,7 @@ def parse_agrs() -> argparse.Namespace:
     parser.add_argument(
         "-f",
         "--format",
-        help=f"formats pair string",
+        help="formats pair string",
     )
     parser.add_argument(
         "-O",
@@ -286,7 +286,7 @@ class Clipmaker:
             if k in ("v", "t") and len(v) == 1
         }
 
-        if u.hostname.endswith("youtube.com") and not "v" in params:
+        if u.hostname.endswith("youtube.com") and "v" not in params:
             raise ValueError(f"Invalid url {self.url!r}")
 
         if self.start is None and "t" in params:
