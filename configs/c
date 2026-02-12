@@ -25,8 +25,7 @@ fi
 
 [ -n "$inp" ] && set -- -q "$inp"
 set -- --header='ctrl-z: execute zc' --bind='ctrl-z:execute(zc)+abort'
-choice="$(find -L "$CONFIG_DIR" -maxdepth 1 |
-    grep -v "^$CONFIG_DIR$" | $C_FZF_CMD "$@")"
+choice="$(find -L "$CONFIG_DIR" -mindepth 1 -maxdepth 1 | $C_FZF_CMD "$@")"
 
 [ -n "$choice" ] || exit 0
 
