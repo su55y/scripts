@@ -14,6 +14,8 @@ show_help() {
     cat <<EOF
 usage: extract-frames [-i FILE] [-c INT] [-f STR] [-p] [-P PATH] [-t STR] [-v] [-y] [-h]
 
+dependencies: ffmpeg, bc, jq
+
 options:
   -c INT       frames count (default: 10)
   -o STR       frames output (default: frames/frame%d.png), should include %d format specifier
@@ -25,6 +27,11 @@ options:
   -v           verbose output
   -y           confirm mkdir -p
 EOF
+}
+
+die() {
+    [ -n "$1" ] && echo "$1"
+    exit 1
 }
 
 parse_args() {
@@ -39,26 +46,16 @@ parse_args() {
         c)
             FRAMES_COUNT=$OPTARG
             case $FRAMES_COUNT in
-            -[[:digit:]]* | 0)
-                echo "Invalid count value $FRAMES_COUNT, should be positive number"
-                exit 1
-                ;;
-            0* | *[!0-9]*)
-                echo "Invalid count value $FRAMES_COUNT, should be positive number"
-                exit 1
-                ;;
+            -[[:digit:]]* | 0) die "Invalid count value $FRAMES_COUNT, should be positive number" ;;
+            0* | *[!0-9]*) die "Invalid count value $FRAMES_COUNT, should be positive number" ;;
             [[:digit:]]*) ;;
-            *)
-                echo "Invalid count value $FRAMES_COUNT, should be positive number"
-                exit 1
-                ;;
+            *) die "Invalid count value $FRAMES_COUNT, should be positive number" ;;
             esac
             ;;
         o)
             OUTPUT=$OPTARG
             if ! echo "$OUTPUT" | grep -qP '^.*%\d*d.+$'; then
-                echo "Invalid output value '$OUTPUT', should include %d format specifier"
-                exit 1
+                die "Invalid output value '$OUTPUT', should include %d format specifier"
             fi
             ;;
         p) GENERATE_PREVIEW=1 ;;
@@ -83,9 +80,14 @@ if [ -z "$INPUT_FILE" ]; then
     show_help
     exit 1
 elif [ ! -f "$INPUT_FILE" ]; then
-    echo "Input file '$INPUT_FILE' doesn't exist"
-    exit 1
+    die "Input file '$INPUT_FILE' doesn't exist"
 fi
+
+for exe in ffmpeg ffprobe bc jq; do
+    if ! command -v $exe >/dev/null 2>&1; then
+        die "$exe are required"
+    fi
+done
 
 print_log() { [ $VERBOSE -eq 1 ] && echo "$1"; }
 
@@ -101,14 +103,12 @@ if [ ! -f "$PROBE_FILE" ]; then
 fi
 
 if [ "$(jq -r .streams\?[0] "$PROBE_FILE" || echo null)" = null ]; then
-    echo "Input file $INPUT_FILE does not contain video stream"
-    exit 1
+    die "Input file $INPUT_FILE does not contain video stream"
 fi
 
 DURATION=$(jq -r .format\?.duration\? "$PROBE_FILE")
 if [ "$DURATION" = null ]; then
-    echo "Can't get duration from probe $PROBE_FILE"
-    exit 1
+    die "Can't get duration from probe $PROBE_FILE"
 fi
 
 if [ -z "$OUTPUT" ]; then
@@ -155,16 +155,10 @@ if [ -z "$PREVIEW_TEMPLATE" ]; then
     cols=$((FRAMES_COUNT / rows))
 
     WIDTH=$(jq -r '.streams[0]?.width?' "$PROBE_FILE" || echo null)
-    if [ "$WIDTH" = null ]; then
-        echo "Can't get width from probe $PROBE_FILE"
-        exit 1
-    fi
+    [ "$WIDTH" = null ] && die "Can't get width from probe $PROBE_FILE"
 
     HEIGHT=$(jq -r '.streams[0]?.height?' "$PROBE_FILE" || echo null)
-    if [ "$HEIGHT" = null ]; then
-        echo "Can't get height from probe $PROBE_FILE"
-        exit 1
-    fi
+    [ "$HEIGHT" = null ] && die "Can't get height from probe $PROBE_FILE"
 
     PREVIEW_TEMPLATE=${cols}x${rows}
     if [ $WIDTH -lt $HEIGHT ] && [ $cols -lt $rows ]; then
@@ -174,13 +168,11 @@ if [ -z "$PREVIEW_TEMPLATE" ]; then
 fi
 
 print_log "Generating $PREVIEW_TEMPLATE preview '$PREVIEW_OUTPUT'..."
-inputs=
+input_files=
 for i in $(seq 1 $FRAMES_COUNT); do
     filename="$(printf "$OUTPUT" $i)"
-    if [ ! -f "$filename" ]; then
-        echo "Frame '$filename' not found"
-        exit 1
-    fi
-    inputs="$inputs $filename"
+    [ -f "$filename" ] || die "Frame '$filename' not found"
+    input_files="$input_files $filename"
 done
-montage $inputs -geometry +0+0 -tile "$PREVIEW_TEMPLATE" "$PREVIEW_OUTPUT"
+[ -n "$input_files" ] || die 'input_files is empty'
+montage $input_files -geometry +0+0 -tile "$PREVIEW_TEMPLATE" "$PREVIEW_OUTPUT"
